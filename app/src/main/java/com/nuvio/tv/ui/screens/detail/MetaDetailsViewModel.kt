@@ -56,7 +56,8 @@ class MetaDetailsViewModel @Inject constructor(
                             .distinct()
                             .sorted()
 
-                        val selectedSeason = seasons.firstOrNull() ?: 1
+                        // Prefer first regular season (> 0), fallback to season 0 (specials)
+                        val selectedSeason = seasons.firstOrNull { it > 0 } ?: seasons.firstOrNull() ?: 1
                         val episodesForSeason = getEpisodesForSeason(meta.videos, selectedSeason)
 
                         _uiState.update {

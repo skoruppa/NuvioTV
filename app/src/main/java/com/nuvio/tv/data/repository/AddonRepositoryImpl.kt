@@ -8,8 +8,7 @@ import com.nuvio.tv.data.remote.api.AddonApi
 import com.nuvio.tv.domain.model.Addon
 import com.nuvio.tv.domain.repository.AddonRepository
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 class AddonRepositoryImpl @Inject constructor(
@@ -17,19 +16,19 @@ class AddonRepositoryImpl @Inject constructor(
     private val preferences: AddonPreferences
 ) : AddonRepository {
 
-    override fun getInstalledAddons(): Flow<List<Addon>> = flow {
-        val urls = preferences.installedAddonUrls.first()
-        val addons = mutableListOf<Addon>()
+    override fun getInstalledAddons(): Flow<List<Addon>> =
+        preferences.installedAddonUrls.map { urls ->
+            val addons = mutableListOf<Addon>()
 
-        for (url in urls) {
-            when (val result = fetchAddon(url)) {
-                is NetworkResult.Success -> addons.add(result.data)
-                else -> { /* Skip failed addons */ }
+            for (url in urls) {
+                when (val result = fetchAddon(url)) {
+                    is NetworkResult.Success -> addons.add(result.data)
+                    else -> { /* Skip failed addons */ }
+                }
             }
-        }
 
-        emit(addons)
-    }
+            addons
+        }
 
     override suspend fun fetchAddon(baseUrl: String): NetworkResult<Addon> {
         val cleanBaseUrl = baseUrl.trimEnd('/')

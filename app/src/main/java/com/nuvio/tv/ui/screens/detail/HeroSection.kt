@@ -1,0 +1,293 @@
+package com.nuvio.tv.ui.screens.detail
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.tv.material3.Button
+import androidx.tv.material3.ButtonDefaults
+import androidx.tv.material3.ExperimentalTvMaterial3Api
+import androidx.tv.material3.Icon
+import androidx.tv.material3.IconButton
+import androidx.tv.material3.IconButtonDefaults
+import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.Text
+import coil.compose.AsyncImage
+import com.nuvio.tv.domain.model.Meta
+import com.nuvio.tv.domain.model.Video
+import com.nuvio.tv.ui.theme.NuvioColors
+import com.nuvio.tv.ui.theme.NuvioTheme
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.automirrored.filled.List
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+fun HeroContentSection(
+    meta: Meta,
+    nextEpisode: Video?,
+    onPlayClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(540.dp),
+        verticalArrangement = Arrangement.Bottom
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 48.dp, end = 48.dp, bottom = 32.dp),
+            verticalArrangement = Arrangement.Bottom
+        ) {
+            if (meta.logo != null) {
+                AsyncImage(
+                    model = meta.logo,
+                    contentDescription = meta.name,
+                    modifier = Modifier
+                        .height(120.dp)
+                        .padding(bottom = 16.dp),
+                    contentScale = ContentScale.Fit
+                )
+            } else {
+                Text(
+                    text = meta.name,
+                    style = MaterialTheme.typography.displayMedium,
+                    color = NuvioColors.TextPrimary,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
+
+            Text(
+                text = "Via Stremio Addons",
+                style = MaterialTheme.typography.labelMedium,
+                color = NuvioTheme.extendedColors.textSecondary,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                PlayButton(
+                    text = if (nextEpisode != null) {
+                        "Play S${nextEpisode.season}, E${nextEpisode.episode}"
+                    } else {
+                        "Play"
+                    },
+                    onClick = onPlayClick
+                )
+
+                ActionIconButton(
+                    icon = Icons.AutoMirrored.Filled.List,
+                    contentDescription = "Shuffle",
+                    onClick = { }
+                )
+
+                ActionIconButton(
+                    icon = Icons.Default.Add,
+                    contentDescription = "Add to list",
+                    onClick = { }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Always show series/movie description, not episode description
+            if (meta.description != null) {
+                Text(
+                    text = meta.description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = NuvioColors.TextPrimary,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .fillMaxWidth(0.6f)
+                        .padding(bottom = 12.dp)
+                )
+            }
+
+            MetaInfoRow(meta = meta)
+        }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun PlayButton(
+    text: String,
+    onClick: () -> Unit
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    Button(
+        onClick = onClick,
+        modifier = Modifier
+            .onFocusChanged { isFocused = it.isFocused },
+        colors = ButtonDefaults.colors(
+            containerColor = NuvioColors.BackgroundCard,
+            focusedContainerColor = NuvioColors.Primary,
+            contentColor = NuvioColors.TextPrimary,
+            focusedContentColor = NuvioColors.OnPrimary
+        ),
+        shape = ButtonDefaults.shape(
+            shape = RoundedCornerShape(12.dp)
+        ),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.PlayArrow,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
+            )
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelLarge
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun ActionIconButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(48.dp)
+            .onFocusChanged { isFocused = it.isFocused },
+        colors = IconButtonDefaults.colors(
+            containerColor = NuvioColors.BackgroundCard,
+            focusedContainerColor = NuvioColors.Primary,
+            contentColor = NuvioColors.TextPrimary,
+            focusedContentColor = NuvioColors.OnPrimary
+        ),
+        shape = IconButtonDefaults.shape(
+            shape = RoundedCornerShape(12.dp)
+        )
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            modifier = Modifier.size(24.dp)
+        )
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun MetaInfoRow(meta: Meta) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (meta.genres.isNotEmpty()) {
+            Text(
+                text = meta.genres.firstOrNull() ?: "",
+                style = MaterialTheme.typography.labelMedium,
+                color = NuvioTheme.extendedColors.textSecondary
+            )
+            MetaInfoDivider()
+        }
+
+        meta.releaseInfo?.let { releaseInfo ->
+            Text(
+                text = releaseInfo,
+                style = MaterialTheme.typography.labelMedium,
+                color = NuvioTheme.extendedColors.textSecondary
+            )
+            MetaInfoDivider()
+        }
+
+        meta.imdbRating?.let { rating ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = "⬥",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = androidx.compose.ui.graphics.Color(0xFF5799EF)
+                )
+                Text(
+                    text = rating.toInt().toString(),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = NuvioTheme.extendedColors.textSecondary
+                )
+            }
+            MetaInfoDivider()
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = "★",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = NuvioTheme.extendedColors.rating
+                )
+                Text(
+                    text = String.format("%.1f", rating),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = NuvioTheme.extendedColors.textSecondary
+                )
+            }
+            MetaInfoDivider()
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = "●",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = androidx.compose.ui.graphics.Color(0xFFE74C3C)
+                )
+                Text(
+                    text = "${(rating * 10).toInt()}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = NuvioTheme.extendedColors.textSecondary
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun MetaInfoDivider() {
+    Text(
+        text = "•",
+        style = MaterialTheme.typography.labelMedium,
+        color = NuvioTheme.extendedColors.textTertiary
+    )
+}

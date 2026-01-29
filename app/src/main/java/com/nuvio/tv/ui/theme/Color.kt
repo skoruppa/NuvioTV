@@ -12,9 +12,9 @@ object NuvioColors {
     val Surface = Color(0xFF1E1E1E)
     val SurfaceVariant = Color(0xFF2D2D2D)
 
-    // Primary accent - Electric Blue (Nuvio brand)
-    val Primary = Color(0xFF00A8E8)
-    val PrimaryVariant = Color(0xFF007BB5)
+    // Primary accent - Neutral Grey
+    val Primary = Color(0xFF9E9E9E)
+    val PrimaryVariant = Color(0xFF6F6F6F)
     val OnPrimary = Color(0xFFFFFFFF)
 
     // Secondary accent - Teal
@@ -28,8 +28,8 @@ object NuvioColors {
     val TextDisabled = Color(0xFF4D4D4D)
 
     // Focus states - Critical for TV navigation
-    val FocusRing = Color(0xFF00A8E8)
-    val FocusBackground = Color(0xFF003D5C)
+    val FocusRing = Color(0xFFBDBDBD)
+    val FocusBackground = Color(0xFF2B2B2B)
 
     // Status colors
     val Rating = Color(0xFFFFD700)
@@ -38,5 +38,5 @@ object NuvioColors {
 
     // Borders
     val Border = Color(0xFF333333)
-    val BorderFocused = Color(0xFF00A8E8)
+    val BorderFocused = Color(0xFFBDBDBD)
 }

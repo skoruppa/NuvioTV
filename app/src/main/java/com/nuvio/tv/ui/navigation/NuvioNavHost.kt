@@ -8,6 +8,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.nuvio.tv.ui.screens.detail.MetaDetailsScreen
 import com.nuvio.tv.ui.screens.home.HomeScreen
+import com.nuvio.tv.ui.screens.addon.AddonManagerScreen
+import com.nuvio.tv.ui.screens.search.SearchScreen
+import com.nuvio.tv.ui.screens.settings.SettingsScreen
 
 @Composable
 fun NuvioNavHost(
@@ -40,6 +43,18 @@ fun NuvioNavHost(
                     // TODO: Implement stream selection screen
                 }
             )
+        }
+
+        composable(Screen.Search.route) {
+            SearchScreen()
+        }
+
+        composable(Screen.Settings.route) {
+            SettingsScreen()
+        }
+
+        composable(Screen.AddonManager.route) {
+            AddonManagerScreen()
         }
     }
 }
