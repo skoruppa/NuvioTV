@@ -20,10 +20,18 @@ import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
+import java.io.ByteArrayInputStream
 import java.net.URL
+import java.security.MessageDigest
+import java.util.Base64
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
+import java.util.zip.GZIPInputStream
+import java.util.zip.InflaterInputStream
+import kotlin.text.Charsets
+import javax.crypto.Mac
+import javax.crypto.spec.SecretKeySpec
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -46,6 +54,65 @@ class PluginRuntime @Inject constructor() {
     // Store parsed documents for cheerio
     private val documentCache = ConcurrentHashMap<String, Document>()
     private val elementCache = ConcurrentHashMap<String, Element>()
+
+    // Pre-compiled regex for :contains() selector conversion
+    private val containsRegex = Regex(""":contains\(["']([^"']+)["']\)""")
+
+    @Volatile
+    private var cachedCryptoJsSource: String? = null
+
+    private fun loadCryptoJsSourceOrNull(): String? {
+        cachedCryptoJsSource?.let { return it }
+        val cl = this::class.java.classLoader ?: return null
+
+        // WebJars layout: META-INF/resources/webjars/crypto-js/<version>/...
+        val candidatePaths = listOf(
+            "META-INF/resources/webjars/crypto-js/4.2.0/crypto-js.min.js",
+            "META-INF/resources/webjars/crypto-js/4.2.0/crypto-js.js",
+            "META-INF/resources/webjars/crypto-js/4.2.0/crypto-js/crypto-js.min.js",
+            "META-INF/resources/webjars/crypto-js/4.2.0/crypto-js/crypto-js.js",
+        )
+
+        for (path in candidatePaths) {
+            try {
+                cl.getResourceAsStream(path)?.use { input ->
+                    val text = input.readBytes().toString(Charsets.UTF_8)
+                    cachedCryptoJsSource = text
+                    return text
+                }
+            } catch (_: Exception) {
+                // Try next candidate
+            }
+        }
+        return null
+    }
+
+    private fun normalizeBase64(input: String): String {
+        var s = input.trim().replace("\n", "").replace("\r", "").replace(" ", "")
+        s = s.replace('-', '+').replace('_', '/')
+        val mod = s.length % 4
+        if (mod != 0) {
+            s += "=".repeat(4 - mod)
+        }
+        return s
+    }
+
+    private fun base64Decode(input: String): ByteArray {
+        return Base64.getDecoder().decode(normalizeBase64(input))
+    }
+
+    private fun base64Encode(bytes: ByteArray): String {
+        return Base64.getEncoder().encodeToString(bytes)
+    }
+
+    private fun bytesToHex(bytes: ByteArray): String {
+        val sb = StringBuilder(bytes.size * 2)
+        for (b in bytes) {
+            sb.append(((b.toInt() shr 4) and 0xF).toString(16))
+            sb.append((b.toInt() and 0xF).toString(16))
+        }
+        return sb.toString()
+    }
 
     /**
      * Execute a plugin and return streams
@@ -131,7 +198,7 @@ class PluginRuntime @Inject constructor() {
                     val doc = documentCache[docId] ?: return@function "[]"
                     try {
                         // Convert cheerio :contains("text") to jsoup :contains(text)
-                        selector = selector.replace(Regex(""":contains\(["']([^"']+)["']\)"""), ":contains($1)")
+                        selector = selector.replace(containsRegex, ":contains($1)")
                         val elements = if (selector.isEmpty()) {
                             Elements()
                         } else {
@@ -157,7 +224,7 @@ class PluginRuntime @Inject constructor() {
                     val element = elementCache[elementId] ?: return@function "[]"
                     try {
                         // Convert cheerio :contains("text") to jsoup :contains(text)
-                        selector = selector.replace(Regex(""":contains\(["']([^"']+)["']\)"""), ":contains($1)")
+                        selector = selector.replace(containsRegex, ":contains($1)")
                         val elements = element.select(selector)
                         val ids = elements.mapIndexed { index, el ->
                             val elId = "$docId:find:$index:${el.hashCode()}"
@@ -228,6 +295,8 @@ class PluginRuntime @Inject constructor() {
                     prevId
                 }
 
+                // Note: crypto-js is now loaded as a real library (WebJars) before plugin execution.
+
                 // Function to capture results
                 function("__capture_result") { args ->
                     resultJson = args.getOrNull(0)?.toString() ?: "[]"
@@ -237,6 +306,11 @@ class PluginRuntime @Inject constructor() {
                 val settingsJson = gson.toJson(scraperSettings)
                 val polyfillCode = buildPolyfillCode(scraperId, settingsJson)
                 evaluate<Any?>(polyfillCode)
+
+                // Load real crypto-js into the JS runtime before plugin code runs.
+                loadCryptoJsSourceOrNull()?.let { cryptoJsSource ->
+                    evaluate<Any?>(cryptoJsSource)
+                }
 
                 // Execute plugin code with module wrapper
                 val wrappedCode = """
@@ -289,7 +363,12 @@ class PluginRuntime @Inject constructor() {
                 val headersMap = gson.fromJson(headersJson, Map::class.java)
                 headersMap?.forEach { (k, v) ->
                     if (k != null && v != null) {
-                        headers[k.toString()] = v.toString()
+                        val key = k.toString()
+                        // If callers set Accept-Encoding manually, OkHttp will not transparently decompress.
+                        // Strip it so OkHttp can negotiate and decode automatically.
+                        if (!key.equals("Accept-Encoding", ignoreCase = true)) {
+                            headers[key] = v.toString()
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -321,7 +400,25 @@ class PluginRuntime @Inject constructor() {
             val request = requestBuilder.build()
             val response = httpClient.newCall(request).execute()
 
-            val responseBody = response.body?.string() ?: ""
+            val responseBodyBytes = response.body?.bytes() ?: ByteArray(0)
+            val contentEncoding = response.header("Content-Encoding")?.lowercase()?.trim()
+            val decodedBytes = try {
+                when (contentEncoding) {
+                    "gzip" -> GZIPInputStream(ByteArrayInputStream(responseBodyBytes)).use { it.readBytes() }
+                    "deflate" -> InflaterInputStream(ByteArrayInputStream(responseBodyBytes)).use { it.readBytes() }
+                    else -> responseBodyBytes
+                }
+            } catch (e: Exception) {
+                // If decoding fails, fall back to raw bytes.
+                responseBodyBytes
+            }
+
+            val charset = response.body?.contentType()?.charset(Charsets.UTF_8) ?: Charsets.UTF_8
+            val responseBody = try {
+                String(decodedBytes, charset)
+            } catch (e: Exception) {
+                String(decodedBytes, Charsets.UTF_8)
+            }
             val responseHeaders = mutableMapOf<String, String>()
             response.headers.forEach { (name, value) ->
                 responseHeaders[name.lowercase()] = value
@@ -815,6 +912,10 @@ class PluginRuntime @Inject constructor() {
             var require = function(moduleName) {
                 if (moduleName === 'cheerio' || moduleName === 'cheerio-without-node-native' || moduleName === 'react-native-cheerio') {
                     return cheerio;
+                }
+                if (moduleName === 'crypto-js') {
+                    if (globalThis.CryptoJS) return globalThis.CryptoJS;
+                    throw new Error("Module 'crypto-js' is not loaded");
                 }
                 throw new Error("Module '" + moduleName + "' is not available");
             };

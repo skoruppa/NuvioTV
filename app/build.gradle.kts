@@ -101,6 +101,9 @@ dependencies {
     implementation(libs.jsoup)
     implementation(libs.gson)
 
+    // Bundle real crypto-js (JS) for QuickJS plugins
+    implementation("org.webjars.npm:crypto-js:4.2.0")
+
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
