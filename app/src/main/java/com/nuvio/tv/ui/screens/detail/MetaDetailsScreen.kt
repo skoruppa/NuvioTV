@@ -83,7 +83,7 @@ fun MetaDetailsScreen(
             uiState.meta != null -> {
                 val meta = uiState.meta!!
                 val genresString = meta.genres.takeIf { it.isNotEmpty() }?.joinToString(" • ")
-                val yearString = meta.releaseInfo
+                val yearString = meta.releaseInfo?.split("-")?.firstOrNull() ?: meta.releaseInfo
 
                 MetaDetailsContent(
                     meta = meta,

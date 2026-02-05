@@ -268,8 +268,10 @@ private fun MetaInfoRow(meta: Meta) {
             }
 
             meta.releaseInfo?.let { releaseInfo ->
+                // Extract year from release info (format: YYYY-MM-DD or just YYYY)
+                val year = releaseInfo.split("-").firstOrNull() ?: releaseInfo
                 Text(
-                    text = releaseInfo,
+                    text = year,
                     style = MaterialTheme.typography.labelLarge,
                     color = NuvioTheme.extendedColors.textSecondary
                 )
