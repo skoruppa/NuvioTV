@@ -1,8 +1,11 @@
 package com.nuvio.tv.domain.model
 
+import androidx.compose.runtime.Immutable
+
 /**
  * Represents the watch progress for a content item (movie or episode).
  */
+@Immutable
 data class WatchProgress(
     val contentId: String,           // IMDB ID of the movie/series
     val contentType: String,         // "movie" or "series"

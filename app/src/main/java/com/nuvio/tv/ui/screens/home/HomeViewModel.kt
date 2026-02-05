@@ -14,7 +14,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
@@ -36,6 +35,7 @@ class HomeViewModel @Inject constructor(
 
     private val catalogsMap = linkedMapOf<String, CatalogRow>()
     private val catalogOrder = mutableListOf<String>()
+    private var addonsCache: List<Addon> = emptyList()
 
     init {
         loadContinueWatching()
@@ -66,6 +66,7 @@ class HomeViewModel @Inject constructor(
 
             try {
                 val addons = addonRepository.getInstalledAddons().first()
+                addonsCache = addons
 
                 if (addons.isEmpty()) {
                     _uiState.update { it.copy(isLoading = false, error = "No addons installed") }
@@ -142,8 +143,7 @@ class HomeViewModel @Inject constructor(
         updateCatalogRows()
 
         viewModelScope.launch {
-            val addons = addonRepository.getInstalledAddons().first()
-            val addon = addons.find { it.id == addonId } ?: return@launch
+            val addon = addonsCache.find { it.id == addonId } ?: return@launch
 
             val nextSkip = (currentRow.currentPage + 1) * 100
             catalogRepository.getCatalog(

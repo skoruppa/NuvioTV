@@ -40,6 +40,10 @@ import com.nuvio.tv.ui.theme.NuvioColors
 import com.nuvio.tv.ui.theme.NuvioTheme
 import java.util.concurrent.TimeUnit
 
+private val CwCardShape = RoundedCornerShape(12.dp)
+private val CwClipShape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
+private val BadgeShape = RoundedCornerShape(4.dp)
+
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun ContinueWatchingSection(
@@ -110,13 +114,29 @@ private fun ContinueWatchingCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val episodeStr = progress.episodeDisplayString
+    val remainingText = remember(progress.position, progress.duration) {
+        formatRemainingTime(progress.remainingTime)
+    }
+    val progressFraction = progress.progressPercentage
+
+    val bgColor = NuvioColors.Background
+    val overlayBrush = remember(bgColor) {
+        Brush.verticalGradient(
+            colorStops = arrayOf(
+                0.0f to Color.Transparent,
+                0.5f to Color.Transparent,
+                0.8f to bgColor.copy(alpha = 0.7f),
+                1.0f to bgColor.copy(alpha = 0.95f)
+            )
+        )
+    }
+    val badgeBackground = remember(bgColor) { bgColor.copy(alpha = 0.8f) }
+
     Card(
         onClick = onClick,
-        modifier = modifier
-            .width(320.dp),
-        shape = CardDefaults.shape(
-            shape = RoundedCornerShape(12.dp)
-        ),
+        modifier = modifier.width(320.dp),
+        shape = CardDefaults.shape(shape = CwCardShape),
         colors = CardDefaults.colors(
             containerColor = NuvioColors.BackgroundCard,
             focusedContainerColor = NuvioColors.FocusBackground
@@ -124,12 +144,10 @@ private fun ContinueWatchingCard(
         border = CardDefaults.border(
             focusedBorder = Border(
                 border = BorderStroke(2.dp, NuvioColors.FocusRing),
-                shape = RoundedCornerShape(12.dp)
+                shape = CwCardShape
             )
         ),
-        scale = CardDefaults.scale(
-            focusedScale = 1.02f
-        )
+        scale = CardDefaults.scale(focusedScale = 1.02f)
     ) {
         Column {
             // Thumbnail with progress overlay
@@ -137,7 +155,7 @@ private fun ContinueWatchingCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(180.dp)
-                    .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
+                    .clip(CwClipShape)
             ) {
                 // Background image
                 AsyncImage(
@@ -151,16 +169,7 @@ private fun ContinueWatchingCard(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                colorStops = arrayOf(
-                                    0.0f to Color.Transparent,
-                                    0.5f to Color.Transparent,
-                                    0.8f to NuvioColors.Background.copy(alpha = 0.7f),
-                                    1.0f to NuvioColors.Background.copy(alpha = 0.95f)
-                                )
-                            )
-                        )
+                        .background(overlayBrush)
                 )
 
                 // Content info at bottom
@@ -170,14 +179,14 @@ private fun ContinueWatchingCard(
                         .padding(12.dp)
                 ) {
                     // Episode info (for series)
-                    progress.episodeDisplayString?.let { episodeStr ->
+                    if (episodeStr != null) {
                         Text(
                             text = episodeStr,
                             style = MaterialTheme.typography.labelMedium,
                             color = NuvioColors.Primary
                         )
                     }
-                    
+
                     Text(
                         text = progress.name,
                         style = MaterialTheme.typography.titleSmall,
@@ -203,12 +212,12 @@ private fun ContinueWatchingCard(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(8.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(NuvioColors.Background.copy(alpha = 0.8f))
+                        .clip(BadgeShape)
+                        .background(badgeBackground)
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
                     Text(
-                        text = formatRemainingTime(progress.remainingTime),
+                        text = remainingText,
                         style = MaterialTheme.typography.labelSmall,
                         color = NuvioColors.TextPrimary
                     )
@@ -224,7 +233,7 @@ private fun ContinueWatchingCard(
             ) {
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth(progress.progressPercentage)
+                        .fillMaxWidth(progressFraction)
                         .height(4.dp)
                         .background(NuvioColors.Primary)
                 )
@@ -237,7 +246,7 @@ private fun formatRemainingTime(remainingMs: Long): String {
     val totalMinutes = TimeUnit.MILLISECONDS.toMinutes(remainingMs)
     val hours = totalMinutes / 60
     val minutes = totalMinutes % 60
-    
+
     return when {
         hours > 0 -> "${hours}h ${minutes}m left"
         minutes > 0 -> "${minutes}m left"

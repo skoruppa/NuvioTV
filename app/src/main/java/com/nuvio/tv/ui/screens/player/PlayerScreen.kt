@@ -250,6 +250,7 @@ fun PlayerScreen(
                     PlayerView(context).apply {
                         this.player = player
                         useController = false
+                        keepScreenOn = true
                         setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
                     }
                 },

@@ -1,7 +1,6 @@
 package com.nuvio.tv.ui.components
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -12,15 +11,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -36,6 +30,8 @@ import com.nuvio.tv.domain.model.PosterShape
 import com.nuvio.tv.ui.theme.NuvioColors
 import com.nuvio.tv.ui.theme.NuvioTheme
 
+private val CardShape = RoundedCornerShape(8.dp)
+
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun ContentCard(
@@ -44,8 +40,6 @@ fun ContentCard(
     focusRequester: FocusRequester? = null,
     onClick: () -> Unit = {}
 ) {
-    var isFocused by remember { mutableStateOf(false) }
-
     val cardWidth = when (item.posterShape) {
         PosterShape.POSTER -> 140.dp
         PosterShape.LANDSCAPE -> 260.dp
@@ -67,11 +61,8 @@ fun ContentCard(
                 .then(
                     if (focusRequester != null) Modifier.focusRequester(focusRequester)
                     else Modifier
-                )
-                .onFocusChanged { isFocused = it.isFocused },
-            shape = CardDefaults.shape(
-                shape = RoundedCornerShape(8.dp)
-            ),
+                ),
+            shape = CardDefaults.shape(shape = CardShape),
             colors = CardDefaults.colors(
                 containerColor = NuvioColors.BackgroundCard,
                 focusedContainerColor = NuvioColors.BackgroundCard
@@ -79,18 +70,16 @@ fun ContentCard(
             border = CardDefaults.border(
                 focusedBorder = Border(
                     border = BorderStroke(2.dp, NuvioColors.FocusRing),
-                    shape = RoundedCornerShape(8.dp)
+                    shape = CardShape
                 )
             ),
-            scale = CardDefaults.scale(
-                focusedScale = 1.02f
-            )
+            scale = CardDefaults.scale(focusedScale = 1.02f)
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(cardHeight)
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(CardShape)
             ) {
                 AsyncImage(
                     model = item.poster,

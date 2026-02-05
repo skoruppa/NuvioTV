@@ -19,9 +19,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.painterResource
 import androidx.compose.runtime.LaunchedEffect
@@ -46,7 +44,6 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import coil.compose.AsyncImage
 import com.nuvio.tv.data.local.ThemeDataStore
 import com.nuvio.tv.domain.model.AppTheme
 import com.nuvio.tv.ui.navigation.NuvioNavHost
@@ -84,13 +81,15 @@ class MainActivity : ComponentActivity() {
                     val currentRoute = navBackStackEntry?.destination?.route
                     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
-                    val rootRoutes = setOf(
-                        Screen.Home.route,
-                        Screen.Search.route,
-                        Screen.Library.route,
-                        Screen.Settings.route,
-                        Screen.AddonManager.route
-                    )
+                    val rootRoutes = remember {
+                        setOf(
+                            Screen.Home.route,
+                            Screen.Search.route,
+                            Screen.Library.route,
+                            Screen.Settings.route,
+                            Screen.AddonManager.route
+                        )
+                    }
 
                     LaunchedEffect(currentRoute) {
                         if (currentRoute in rootRoutes) {
@@ -104,15 +103,18 @@ class MainActivity : ComponentActivity() {
                         drawerState.setValue(DrawerValue.Open)
                     }
 
-                    val drawerItems = listOf(
-                        Screen.Home.route to ("Home" to Icons.Filled.Home),
-                        Screen.Search.route to ("Search" to Icons.Filled.Search),
-                        Screen.Library.route to ("Library" to Icons.Filled.Bookmark),
-                        Screen.AddonManager.route to ("Addons" to Icons.Filled.Extension),
-                        Screen.Settings.route to ("Settings" to Icons.Filled.Settings)
-                    )
+                    val drawerItems = remember {
+                        listOf(
+                            Screen.Home.route to ("Home" to Icons.Filled.Home),
+                            Screen.Search.route to ("Search" to Icons.Filled.Search),
+                            Screen.Library.route to ("Library" to Icons.Filled.Bookmark),
+                            Screen.AddonManager.route to ("Addons" to Icons.Filled.Extension),
+                            Screen.Settings.route to ("Settings" to Icons.Filled.Settings)
+                        )
+                    }
 
                     val showSidebar = currentRoute in rootRoutes
+
                     if (showSidebar) {
                         NavigationDrawer(
                             drawerState = drawerState,
@@ -148,6 +150,14 @@ class MainActivity : ComponentActivity() {
                                         )
                                     }
                                     Spacer(modifier = Modifier.weight(1f))
+                                    val itemColors = NavigationDrawerItemDefaults.colors(
+                                        selectedContainerColor = NuvioColors.FocusBackground,
+                                        focusedContainerColor = NuvioColors.FocusBackground,
+                                        pressedContainerColor = NuvioColors.FocusBackground,
+                                        selectedContentColor = NuvioColors.FocusRing,
+                                        focusedContentColor = NuvioColors.FocusRing,
+                                        pressedContentColor = NuvioColors.FocusRing
+                                    )
                                     Column(
                                         modifier = Modifier.fillMaxWidth(),
                                         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -169,14 +179,7 @@ class MainActivity : ComponentActivity() {
                                                     }
                                                     drawerState.setValue(DrawerValue.Closed)
                                                 },
-                                                colors = NavigationDrawerItemDefaults.colors(
-                                                    selectedContainerColor = NuvioColors.FocusBackground,
-                                                    focusedContainerColor = NuvioColors.FocusBackground,
-                                                    pressedContainerColor = NuvioColors.FocusBackground,
-                                                    selectedContentColor = NuvioColors.FocusRing,
-                                                    focusedContentColor = NuvioColors.FocusRing,
-                                                    pressedContentColor = NuvioColors.FocusRing
-                                                ),
+                                                colors = itemColors,
                                                 leadingContent = {
                                                     Icon(imageVector = icon, contentDescription = null)
                                                 }

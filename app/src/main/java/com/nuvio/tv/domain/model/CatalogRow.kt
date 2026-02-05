@@ -1,5 +1,8 @@
 package com.nuvio.tv.domain.model
 
+import androidx.compose.runtime.Immutable
+
+@Immutable
 data class CatalogRow(
     val addonId: String,
     val addonName: String,

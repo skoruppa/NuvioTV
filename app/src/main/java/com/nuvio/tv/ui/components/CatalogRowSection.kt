@@ -18,6 +18,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.focus.FocusRequester
@@ -68,11 +69,16 @@ fun CatalogRowSection(
         }
     }
 
+    // Use rememberUpdatedState so the derivedStateOf block doesn't capture stale values
+    // but also doesn't cause the derived state itself to be recreated
+    val currentHasMore by rememberUpdatedState(catalogRow.hasMore)
+    val currentIsLoading by rememberUpdatedState(catalogRow.isLoading)
+
     val shouldLoadMore by remember {
         derivedStateOf {
             val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
             val totalItems = listState.layoutInfo.totalItemsCount
-            lastVisibleItem >= totalItems - 5 && catalogRow.hasMore && !catalogRow.isLoading
+            lastVisibleItem >= totalItems - 5 && currentHasMore && !currentIsLoading
         }
     }
 
@@ -128,9 +134,7 @@ fun CatalogRowSection(
             }
 
             if (catalogRow.isLoading) {
-
                 item {
-
                     Box(
                         modifier = Modifier
                             .width(150.dp)
@@ -140,7 +144,6 @@ fun CatalogRowSection(
                         LoadingIndicator()
                     }
                 }
-
             }
         }
     }
