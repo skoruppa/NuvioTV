@@ -384,7 +384,24 @@ class HomeViewModel @Inject constructor(
 
                 if (result is NetworkResult.Success) {
                     prefetchedExternalMetaIds.add(item.id)
-                    updateCatalogItemWithMeta(item.id, result.data)
+                    val meta = result.data
+                    updateCatalogItemWithMeta(item.id, meta)
+
+                    if (currentTmdbSettings.enabled) {
+                        val tmdbId = tmdbService.ensureTmdbId(item.id, item.apiType)
+                        if (tmdbId != null) {
+                            val enrichment = runCatching {
+                                tmdbMetadataService.fetchEnrichment(
+                                    tmdbId = tmdbId,
+                                    contentType = item.type,
+                                    language = currentTmdbSettings.language
+                                )
+                            }.getOrNull()
+                            if (enrichment != null) {
+                                updateCatalogItemWithTmdb(item.id, enrichment)
+                            }
+                        }
+                    }
                 }
             } finally {
                 externalMetaPrefetchInFlightIds.remove(item.id)
@@ -406,6 +423,49 @@ class HomeViewModel @Inject constructor(
         )
 
         // Update the source-of-truth catalogsMap so re-renders don't revert the enrichment
+        catalogsMap.forEach { (key, row) ->
+            val itemIndex = row.items.indexOfFirst { it.id == itemId }
+            if (itemIndex >= 0) {
+                val merged = mergeItem(row.items[itemIndex])
+                if (merged != row.items[itemIndex]) {
+                    val mutableItems = row.items.toMutableList()
+                    mutableItems[itemIndex] = merged
+                    catalogsMap[key] = row.copy(items = mutableItems)
+                    truncatedRowCache.remove(key)
+                }
+            }
+        }
+
+        _uiState.update { state ->
+            var changed = false
+            val updatedRows = state.catalogRows.map { row ->
+                val itemIndex = row.items.indexOfFirst { it.id == itemId }
+                if (itemIndex < 0) {
+                    row
+                } else {
+                    val mergedItem = mergeItem(row.items[itemIndex])
+                    if (mergedItem == row.items[itemIndex]) {
+                        row
+                    } else {
+                        changed = true
+                        val mutableItems = row.items.toMutableList()
+                        mutableItems[itemIndex] = mergedItem
+                        row.copy(items = mutableItems)
+                    }
+                }
+            }
+            if (changed) state.copy(catalogRows = updatedRows) else state
+        }
+    }
+
+    private fun updateCatalogItemWithTmdb(itemId: String, enrichment: com.nuvio.tv.core.tmdb.TmdbEnrichment) {
+        fun mergeItem(currentItem: MetaPreview): MetaPreview = currentItem.copy(
+            background = enrichment.backdrop ?: currentItem.background,
+            logo = enrichment.logo ?: currentItem.logo,
+            releaseInfo = enrichment.releaseInfo ?: currentItem.releaseInfo,
+            genres = if (enrichment.genres.isNotEmpty()) enrichment.genres else currentItem.genres
+        )
+
         catalogsMap.forEach { (key, row) ->
             val itemIndex = row.items.indexOfFirst { it.id == itemId }
             if (itemIndex >= 0) {
