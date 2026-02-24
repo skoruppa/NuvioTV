@@ -126,8 +126,6 @@ class HomeViewModel @Inject constructor(
     private var pendingExternalMetaPrefetchItemId: String? = null
 
     private val prefetchedTmdbIds = Collections.synchronizedSet(mutableSetOf<String>())
-    private var tmdbPrefetchJob: Job? = null
-    private var pendingTmdbPrefetchItemId: String? = null
     @Volatile
     private var externalMetaPrefetchEnabled: Boolean = false
     val trailerPreviewUrls: Map<String, String>
@@ -371,16 +369,38 @@ class HomeViewModel @Inject constructor(
     }
 
     fun onItemFocus(item: MetaPreview) {
-        // Addon meta prefetch (gated by externalMetaPrefetchEnabled)
-        if (externalMetaPrefetchEnabled && item.id !in prefetchedExternalMetaIds && pendingExternalMetaPrefetchItemId != item.id) {
-            pendingExternalMetaPrefetchItemId = item.id
-            externalMetaPrefetchJob?.cancel()
-            externalMetaPrefetchJob = viewModelScope.launch(Dispatchers.IO) {
-                delay(EXTERNAL_META_PREFETCH_FOCUS_DEBOUNCE_MS)
-                if (pendingExternalMetaPrefetchItemId != item.id) return@launch
-                if (!externalMetaPrefetchEnabled) return@launch
-                if (item.id in prefetchedExternalMetaIds) return@launch
-                if (!externalMetaPrefetchInFlightIds.add(item.id)) return@launch
+        if (!externalMetaPrefetchEnabled && !currentTmdbSettings.enabled) return
+        if (item.id in prefetchedExternalMetaIds || item.id in prefetchedTmdbIds) return
+        if (pendingExternalMetaPrefetchItemId == item.id) return
+
+        pendingExternalMetaPrefetchItemId = item.id
+        externalMetaPrefetchJob?.cancel()
+        externalMetaPrefetchJob = viewModelScope.launch(Dispatchers.IO) {
+            delay(EXTERNAL_META_PREFETCH_FOCUS_DEBOUNCE_MS)
+            if (pendingExternalMetaPrefetchItemId != item.id) return@launch
+
+            val tmdbId = if (currentTmdbSettings.enabled) {
+                tmdbService.ensureTmdbId(item.id, item.apiType)
+            } else null
+
+            if (tmdbId != null) {
+                val enrichment = runCatching {
+                    tmdbMetadataService.fetchEnrichment(
+                        tmdbId = tmdbId,
+                        contentType = item.type,
+                        language = currentTmdbSettings.language
+                    )
+                }.getOrNull()
+                if (enrichment != null) {
+                    prefetchedTmdbIds.add(item.id)
+                    updateCatalogItemWithTmdb(item.id, enrichment)
+                    if (pendingExternalMetaPrefetchItemId == item.id) pendingExternalMetaPrefetchItemId = null
+                    return@launch
+                }
+            }
+
+            // tmdbId null or enrichment failed - fall back to addon prefetch
+            if (externalMetaPrefetchEnabled && item.id !in prefetchedExternalMetaIds && externalMetaPrefetchInFlightIds.add(item.id)) {
                 try {
                     val result = metaRepository.getMetaFromAllAddons(item.apiType, item.id)
                         .first { it is NetworkResult.Success || it is NetworkResult.Error }
@@ -390,30 +410,10 @@ class HomeViewModel @Inject constructor(
                     }
                 } finally {
                     externalMetaPrefetchInFlightIds.remove(item.id)
-                    if (pendingExternalMetaPrefetchItemId == item.id) pendingExternalMetaPrefetchItemId = null
                 }
             }
-        }
 
-        // TMDB enrichment (always runs if TMDB enabled, independent of addon prefetch)
-        if (currentTmdbSettings.enabled && item.id !in prefetchedTmdbIds && pendingTmdbPrefetchItemId != item.id) {
-            pendingTmdbPrefetchItemId = item.id
-            tmdbPrefetchJob?.cancel()
-            tmdbPrefetchJob = viewModelScope.launch(Dispatchers.IO) {
-                delay(EXTERNAL_META_PREFETCH_FOCUS_DEBOUNCE_MS)
-                if (pendingTmdbPrefetchItemId != item.id) return@launch
-                if (item.id in prefetchedTmdbIds) return@launch
-                val tmdbId = tmdbService.ensureTmdbId(item.id, item.apiType) ?: return@launch
-                val enrichment = runCatching {
-                    tmdbMetadataService.fetchEnrichment(
-                        tmdbId = tmdbId,
-                        contentType = item.type,
-                        language = currentTmdbSettings.language
-                    )
-                }.getOrNull() ?: return@launch
-                prefetchedTmdbIds.add(item.id)
-                updateCatalogItemWithTmdb(item.id, enrichment)
-            }
+            if (pendingExternalMetaPrefetchItemId == item.id) pendingExternalMetaPrefetchItemId = null
         }
     }
 
@@ -467,7 +467,7 @@ class HomeViewModel @Inject constructor(
         fun mergeItem(currentItem: MetaPreview): MetaPreview = currentItem.copy(
             background = enrichment.backdrop ?: currentItem.background,
             logo = enrichment.logo ?: currentItem.logo,
-            releaseInfo = enrichment.releaseInfo ?: currentItem.releaseInfo,
+            description = enrichment.description ?: currentItem.description,
             genres = if (enrichment.genres.isNotEmpty()) enrichment.genres else currentItem.genres
         )
 
