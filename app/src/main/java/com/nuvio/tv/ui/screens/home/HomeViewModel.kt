@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nuvio.tv.core.network.NetworkResult
+import com.nuvio.tv.core.tmdb.TmdbEnrichment
 import com.nuvio.tv.core.tmdb.TmdbMetadataService
 import com.nuvio.tv.core.tmdb.TmdbService
 import com.nuvio.tv.data.local.LayoutPreferenceDataStore
@@ -123,6 +124,10 @@ class HomeViewModel @Inject constructor(
     private val externalMetaPrefetchInFlightIds = Collections.synchronizedSet(mutableSetOf<String>())
     private var externalMetaPrefetchJob: Job? = null
     private var pendingExternalMetaPrefetchItemId: String? = null
+
+    private val prefetchedTmdbIds = Collections.synchronizedSet(mutableSetOf<String>())
+    private var tmdbPrefetchJob: Job? = null
+    private var pendingTmdbPrefetchItemId: String? = null
     @Volatile
     private var externalMetaPrefetchEnabled: Boolean = false
     val trailerPreviewUrls: Map<String, String>
@@ -366,48 +371,48 @@ class HomeViewModel @Inject constructor(
     }
 
     fun onItemFocus(item: MetaPreview) {
-        if (!externalMetaPrefetchEnabled) return
-        if (item.id in prefetchedExternalMetaIds) return
-        if (pendingExternalMetaPrefetchItemId == item.id) return
-
-        pendingExternalMetaPrefetchItemId = item.id
-        externalMetaPrefetchJob?.cancel()
-        externalMetaPrefetchJob = viewModelScope.launch(Dispatchers.IO) {
-            delay(EXTERNAL_META_PREFETCH_FOCUS_DEBOUNCE_MS)
-            if (pendingExternalMetaPrefetchItemId != item.id) return@launch
-            if (!externalMetaPrefetchEnabled) return@launch
-            if (item.id in prefetchedExternalMetaIds) return@launch
-            if (!externalMetaPrefetchInFlightIds.add(item.id)) return@launch
-            try {
-                val result = metaRepository.getMetaFromAllAddons(item.apiType, item.id)
-                    .first { it is NetworkResult.Success || it is NetworkResult.Error }
-
-                if (result is NetworkResult.Success) {
-                    prefetchedExternalMetaIds.add(item.id)
-                    val meta = result.data
-                    updateCatalogItemWithMeta(item.id, meta)
-
-                    if (currentTmdbSettings.enabled) {
-                        val tmdbId = tmdbService.ensureTmdbId(item.id, item.apiType)
-                        if (tmdbId != null) {
-                            val enrichment = runCatching {
-                                tmdbMetadataService.fetchEnrichment(
-                                    tmdbId = tmdbId,
-                                    contentType = item.type,
-                                    language = currentTmdbSettings.language
-                                )
-                            }.getOrNull()
-                            if (enrichment != null) {
-                                updateCatalogItemWithTmdb(item.id, enrichment)
-                            }
-                        }
+        // Addon meta prefetch (gated by externalMetaPrefetchEnabled)
+        if (externalMetaPrefetchEnabled && item.id !in prefetchedExternalMetaIds && pendingExternalMetaPrefetchItemId != item.id) {
+            pendingExternalMetaPrefetchItemId = item.id
+            externalMetaPrefetchJob?.cancel()
+            externalMetaPrefetchJob = viewModelScope.launch(Dispatchers.IO) {
+                delay(EXTERNAL_META_PREFETCH_FOCUS_DEBOUNCE_MS)
+                if (pendingExternalMetaPrefetchItemId != item.id) return@launch
+                if (!externalMetaPrefetchEnabled) return@launch
+                if (item.id in prefetchedExternalMetaIds) return@launch
+                if (!externalMetaPrefetchInFlightIds.add(item.id)) return@launch
+                try {
+                    val result = metaRepository.getMetaFromAllAddons(item.apiType, item.id)
+                        .first { it is NetworkResult.Success || it is NetworkResult.Error }
+                    if (result is NetworkResult.Success) {
+                        prefetchedExternalMetaIds.add(item.id)
+                        updateCatalogItemWithMeta(item.id, result.data)
                     }
+                } finally {
+                    externalMetaPrefetchInFlightIds.remove(item.id)
+                    if (pendingExternalMetaPrefetchItemId == item.id) pendingExternalMetaPrefetchItemId = null
                 }
-            } finally {
-                externalMetaPrefetchInFlightIds.remove(item.id)
-                if (pendingExternalMetaPrefetchItemId == item.id) {
-                    pendingExternalMetaPrefetchItemId = null
-                }
+            }
+        }
+
+        // TMDB enrichment (always runs if TMDB enabled, independent of addon prefetch)
+        if (currentTmdbSettings.enabled && item.id !in prefetchedTmdbIds && pendingTmdbPrefetchItemId != item.id) {
+            pendingTmdbPrefetchItemId = item.id
+            tmdbPrefetchJob?.cancel()
+            tmdbPrefetchJob = viewModelScope.launch(Dispatchers.IO) {
+                delay(EXTERNAL_META_PREFETCH_FOCUS_DEBOUNCE_MS)
+                if (pendingTmdbPrefetchItemId != item.id) return@launch
+                if (item.id in prefetchedTmdbIds) return@launch
+                val tmdbId = tmdbService.ensureTmdbId(item.id, item.apiType) ?: return@launch
+                val enrichment = runCatching {
+                    tmdbMetadataService.fetchEnrichment(
+                        tmdbId = tmdbId,
+                        contentType = item.type,
+                        language = currentTmdbSettings.language
+                    )
+                }.getOrNull() ?: return@launch
+                prefetchedTmdbIds.add(item.id)
+                updateCatalogItemWithTmdb(item.id, enrichment)
             }
         }
     }
@@ -458,7 +463,7 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun updateCatalogItemWithTmdb(itemId: String, enrichment: com.nuvio.tv.core.tmdb.TmdbEnrichment) {
+    private fun updateCatalogItemWithTmdb(itemId: String, enrichment: TmdbEnrichment) {
         fun mergeItem(currentItem: MetaPreview): MetaPreview = currentItem.copy(
             background = enrichment.backdrop ?: currentItem.background,
             logo = enrichment.logo ?: currentItem.logo,
