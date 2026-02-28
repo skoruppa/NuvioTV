@@ -470,7 +470,7 @@ fun PlayerScreen(
                             if (!uiState.showControls) {
                                 viewModel.onEvent(PlayerEvent.OnToggleControls)
                             } else {
-                                val skipVisible = uiState.activeSkipInterval != null && !uiState.skipIntervalDismissed
+                                val skipVisible = skipButtonActuallyVisible
                                 if (skipVisible) {
                                     try {
                                         skipIntroFocusRequester.requestFocus()
@@ -627,12 +627,13 @@ fun PlayerScreen(
 
         // Skip Intro button (bottom-left, independent of controls)
         SkipIntroButton(
-            interval = uiState.activeSkipInterval,
+            interval = if (uiState.showPauseOverlay || uiState.showLoadingOverlay) null else uiState.activeSkipInterval,
             dismissed = uiState.skipIntervalDismissed,
             controlsVisible = uiState.showControls,
             onSkip = { viewModel.onEvent(PlayerEvent.OnSkipIntro) },
             onDismiss = { viewModel.onEvent(PlayerEvent.OnDismissSkipIntro) },
             onVisibilityChanged = { skipButtonActuallyVisible = it },
+            onFocused = { viewModel.scheduleHideControls() },
             focusRequester = skipIntroFocusRequester,
             modifier = Modifier
                 .align(Alignment.BottomStart)
@@ -642,7 +643,6 @@ fun PlayerScreen(
                     else -> 32.dp
                 })
         )
-
         NextEpisodeCardOverlay(
             nextEpisode = uiState.nextEpisode,
             visible = uiState.showNextEpisodeCard &&
