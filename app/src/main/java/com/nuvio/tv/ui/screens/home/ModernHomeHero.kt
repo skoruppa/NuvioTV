@@ -52,7 +52,8 @@ internal fun ModernHeroMediaLayer(
     muted: Boolean,
     leftGradient: ImageBitmap,
     bottomGradient: ImageBitmap,
-    radialGradient: ImageBitmap,
+    topContourGradient: ImageBitmap,
+    bottomContourGradient: ImageBitmap,
     onTrailerEnded: () -> Unit,
     onFirstFrameRendered: () -> Unit,
     modifier: Modifier,
@@ -108,9 +109,9 @@ internal fun ModernHeroMediaLayer(
                     val dst = IntSize(size.width.toInt(), size.height.toInt())
                     onDrawBehind {
                         drawImage(leftGradient, dstSize = dst, filterQuality = FilterQuality.Low)
-                        drawImage(leftGradient, dstSize = dst, filterQuality = FilterQuality.Low)
+                        drawImage(topContourGradient, dstSize = dst, filterQuality = FilterQuality.Low)
+                        drawImage(bottomContourGradient, dstSize = dst, filterQuality = FilterQuality.Low)
                         drawImage(bottomGradient, dstSize = dst, filterQuality = FilterQuality.Low)
-                        drawImage(radialGradient, dstSize = dst, filterQuality = FilterQuality.Low)
                     }
                 }
         )

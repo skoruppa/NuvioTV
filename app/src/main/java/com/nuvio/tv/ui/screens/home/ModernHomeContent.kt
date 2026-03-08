@@ -558,6 +558,8 @@ fun ModernHomeContent(
         val localDensity = LocalDensity.current
         val rowsViewportHeightFraction = if (useLandscapePosters) 0.49f else 0.52f
         val rowsViewportHeight = with(localDensity) { (containerHeightPx * rowsViewportHeightFraction).toDp() }
+        val containerHeight = with(localDensity) { containerHeightPx.toDp() }
+        val containerWidth = with(localDensity) { containerWidthPx.toDp() }
         val resolvedHero by remember(heroItem, activeRow, clampedActiveItemIndex) {
             derivedStateOf {
                 heroItem
@@ -626,6 +628,12 @@ fun ModernHomeContent(
         val catalogBottomPadding = 0.dp
         val heroToCatalogGap = 16.dp
         val rowTitleBottom = 14.dp
+        val rowTitleLineHeight = MaterialTheme.typography.titleMedium.lineHeight
+        val rowTitleHeight = with(localDensity) {
+            runCatching { rowTitleLineHeight.toDp() }.getOrDefault(24.dp)
+        }
+        val heroBackdropHeight = (containerHeight - rowsViewportHeight + rowTitleHeight + rowTitleBottom)
+            .coerceAtMost(containerHeight)
         val verticalRowBringIntoViewSpec = remember(localDensity, defaultBringIntoViewSpec) {
             val topInsetPx = with(localDensity) { MODERN_ROW_HEADER_FOCUS_INSET.toPx() }
             object : BringIntoViewSpec {
@@ -641,11 +649,11 @@ fun ModernHomeContent(
             }
         }
         val bgColor = NuvioColors.Background
-        val heroMediaWidthPx = remember(containerWidthPx) {
-            (containerWidthPx * 0.75f).toInt().coerceAtLeast(1)
+        val heroMediaWidthPx = remember(containerWidth, localDensity) {
+            with(localDensity) { (containerWidth * MODERN_HERO_MEDIA_WIDTH_FRACTION).roundToPx() }
         }
-        val heroMediaHeightPx = remember(containerHeightPx) {
-            (containerHeightPx * MODERN_HERO_BACKDROP_HEIGHT_FRACTION).toInt().coerceAtLeast(1)
+        val heroMediaHeightPx = remember(heroBackdropHeight, localDensity) {
+            with(localDensity) { heroBackdropHeight.roundToPx() }
         }
         val heroLeftGradientBitmap = remember(bgColor, heroMediaWidthPx, heroMediaHeightPx) {
             val w = heroMediaWidthPx.coerceAtLeast(1)
@@ -653,38 +661,57 @@ fun ModernHomeContent(
             val canvas = android.graphics.Canvas(bmp)
             val solidEnd = w * 0.018f
             canvas.drawRect(0f, 0f, solidEnd, 2f, android.graphics.Paint().apply { color = bgColor.toArgb() })
+            val fadeEnd = solidEnd + w * 0.42f
             val shader = android.graphics.LinearGradient(
-                solidEnd, 0f, w * 0.55f, 0f,
+                solidEnd, 0f, fadeEnd, 0f,
                 intArrayOf(
-                    bgColor.copy(alpha = 1.00f).toArgb(),
-                    bgColor.copy(alpha = 0.92f).toArgb(),
-                    bgColor.copy(alpha = 0.70f).toArgb(),
-                    bgColor.copy(alpha = 0.30f).toArgb(),
-                    bgColor.copy(alpha = 0.08f).toArgb(),
+                    bgColor.copy(alpha = 0.996f).toArgb(),
+                    bgColor.copy(alpha = 0.851f).toArgb(),
+                    bgColor.copy(alpha = 0.553f).toArgb(),
+                    bgColor.copy(alpha = 0.157f).toArgb(),
                     bgColor.copy(alpha = 0f).toArgb()
                 ),
-                floatArrayOf(0f, 0.05f, 0.20f, 0.45f, 0.72f, 1f),
+                floatArrayOf(0f, 0.22f, 0.46f, 0.76f, 1f),
                 android.graphics.Shader.TileMode.CLAMP
             )
             canvas.drawRect(solidEnd, 0f, w.toFloat(), 2f, android.graphics.Paint().apply { this.shader = shader })
             bmp.asImageBitmap()
         }
-        val heroRadialGradientBitmap = remember(bgColor, heroMediaWidthPx, heroMediaHeightPx) {
+        val heroTopContourBitmap = remember(bgColor, heroMediaWidthPx, heroMediaHeightPx) {
             val w = heroMediaWidthPx.coerceAtLeast(1)
             val h = heroMediaHeightPx.coerceAtLeast(1)
             val bmp = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
             val canvas = android.graphics.Canvas(bmp)
-            val shader = android.graphics.RadialGradient(
-                0f, h * 0.5f,
-                w * 0.70f,
+            // diagonal from top-left to (0.24w, 0.40h)
+            val shader = android.graphics.LinearGradient(
+                0f, 0f, w * 0.24f, h * 0.40f,
                 intArrayOf(
-                    bgColor.copy(alpha = 1.00f).toArgb(),
-                    bgColor.copy(alpha = 0.85f).toArgb(),
-                    bgColor.copy(alpha = 0.45f).toArgb(),
-                    bgColor.copy(alpha = 0.10f).toArgb(),
+                    bgColor.copy(alpha = 0.275f).toArgb(),
+                    bgColor.copy(alpha = 0.137f).toArgb(),
+                    bgColor.copy(alpha = 0.047f).toArgb(),
                     bgColor.copy(alpha = 0f).toArgb()
                 ),
-                floatArrayOf(0f, 0.15f, 0.40f, 0.70f, 1f),
+                floatArrayOf(0f, 0.38f, 0.72f, 1f),
+                android.graphics.Shader.TileMode.CLAMP
+            )
+            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), android.graphics.Paint().apply { this.shader = shader })
+            bmp.asImageBitmap()
+        }
+        val heroBottomContourBitmap = remember(bgColor, heroMediaWidthPx, heroMediaHeightPx) {
+            val w = heroMediaWidthPx.coerceAtLeast(1)
+            val h = heroMediaHeightPx.coerceAtLeast(1)
+            val bmp = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
+            val canvas = android.graphics.Canvas(bmp)
+            // diagonal from bottom-left to (0.24w, 0.61h)
+            val shader = android.graphics.LinearGradient(
+                0f, h.toFloat(), w * 0.24f, h * 0.61f,
+                intArrayOf(
+                    bgColor.copy(alpha = 0.235f).toArgb(),
+                    bgColor.copy(alpha = 0.118f).toArgb(),
+                    bgColor.copy(alpha = 0.047f).toArgb(),
+                    bgColor.copy(alpha = 0f).toArgb()
+                ),
+                floatArrayOf(0f, 0.42f, 0.74f, 1f),
                 android.graphics.Shader.TileMode.CLAMP
             )
             canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), android.graphics.Paint().apply { this.shader = shader })
@@ -692,18 +719,18 @@ fun ModernHomeContent(
         }
         val heroBottomGradientBitmap = remember(bgColor, heroMediaWidthPx, heroMediaHeightPx) {
             val h = heroMediaHeightPx.coerceAtLeast(1)
-            val transparent = bgColor.copy(alpha = 0f).toArgb()
             val bmp = android.graphics.Bitmap.createBitmap(2, h, android.graphics.Bitmap.Config.ARGB_8888)
             val canvas = android.graphics.Canvas(bmp)
             val shader = android.graphics.LinearGradient(
-                0f, h * 0.50f, 0f, h.toFloat(),
+                0f, h * 0.89f, 0f, h.toFloat(),
                 intArrayOf(
-                    transparent,
-                    bgColor.copy(alpha = 0.45f).toArgb(),
-                    bgColor.copy(alpha = 0.85f).toArgb(),
-                    bgColor.copy(alpha = 1.00f).toArgb()
+                    bgColor.copy(alpha = 0f).toArgb(),
+                    bgColor.copy(alpha = 0.137f).toArgb(),
+                    bgColor.copy(alpha = 0.514f).toArgb(),
+                    bgColor.copy(alpha = 0.914f).toArgb(),
+                    bgColor.copy(alpha = 0.996f).toArgb()
                 ),
-                floatArrayOf(0f, 0.50f, 0.82f, 1f),
+                floatArrayOf(0f, 0.25f, 0.57f, 0.84f, 1f),
                 android.graphics.Shader.TileMode.CLAMP
             )
             canvas.drawRect(0f, 0f, 2f, h.toFloat(), android.graphics.Paint().apply { this.shader = shader })
@@ -713,9 +740,10 @@ fun ModernHomeContent(
         val heroMediaModifier = Modifier
             .align(Alignment.TopEnd)
             .offset(x = 56.dp)
-            .fillMaxWidth(0.75f)
-            .fillMaxHeight(MODERN_HERO_BACKDROP_HEIGHT_FRACTION)
+            .fillMaxWidth(MODERN_HERO_MEDIA_WIDTH_FRACTION)
+            .height(heroBackdropHeight)
 
+        if (containerWidthPx > 0 && containerHeightPx > 0) {
         ModernHeroMediaLayer(
             heroBackdrop = heroBackdrop,
             heroBackdropAlpha = heroBackdropAlpha,
@@ -725,7 +753,8 @@ fun ModernHomeContent(
             heroTrailerAlpha = heroTrailerAlpha,
             muted = uiState.focusedPosterBackdropTrailerMuted,
             leftGradient = heroLeftGradientBitmap,
-            radialGradient = heroRadialGradientBitmap,
+            topContourGradient = heroTopContourBitmap,
+            bottomContourGradient = heroBottomContourBitmap,
             bottomGradient = heroBottomGradientBitmap,
             onTrailerEnded = { expandedCatalogFocusKey = null },
             onFirstFrameRendered = { heroTrailerFirstFrameRendered = true },
@@ -733,6 +762,7 @@ fun ModernHomeContent(
             requestWidthPx = heroMediaWidthPx,
             requestHeightPx = heroMediaHeightPx
         )
+        }
         HeroTitleBlock(
             preview = resolvedHero,
             portraitMode = !useLandscapePosters,
