@@ -64,6 +64,10 @@ import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -645,30 +649,45 @@ fun ModernHomeContent(
         }
         val heroLeftGradientBitmap = remember(bgColor, heroMediaWidthPx, heroMediaHeightPx) {
             val w = heroMediaWidthPx.coerceAtLeast(1)
-            // horizontal: solid strip [0, w*0.018], then fade [w*0.018, w*0.378]
-            // stops: 0→1.0, 0.18→0.82, 0.40→0.48, 0.70→0.14, 1.0→0
-            val solidEnd = w * 0.018f
-            val fadeEnd = w * 0.72f
-            val transparent = bgColor.copy(alpha = 0f).toArgb()
             val bmp = android.graphics.Bitmap.createBitmap(w, 2, android.graphics.Bitmap.Config.ARGB_8888)
             val canvas = android.graphics.Canvas(bmp)
-            canvas.drawRect(0f, 0f, solidEnd, 2f, android.graphics.Paint().apply {
-                color = bgColor.toArgb()
-            })
-            val fadeW = fadeEnd - solidEnd
+            val solidEnd = w * 0.018f
+            canvas.drawRect(0f, 0f, solidEnd, 2f, android.graphics.Paint().apply { color = bgColor.toArgb() })
             val shader = android.graphics.LinearGradient(
-                solidEnd, 0f, solidEnd + fadeW, 0f,
+                solidEnd, 0f, w * 0.55f, 0f,
                 intArrayOf(
                     bgColor.copy(alpha = 1.00f).toArgb(),
-                    bgColor.copy(alpha = 0.60f).toArgb(),
-                    bgColor.copy(alpha = 0.20f).toArgb(),
-                    bgColor.copy(alpha = 0.05f).toArgb(),
-                    transparent
+                    bgColor.copy(alpha = 0.92f).toArgb(),
+                    bgColor.copy(alpha = 0.70f).toArgb(),
+                    bgColor.copy(alpha = 0.30f).toArgb(),
+                    bgColor.copy(alpha = 0.08f).toArgb(),
+                    bgColor.copy(alpha = 0f).toArgb()
                 ),
-                floatArrayOf(0f, 0.20f, 0.50f, 0.78f, 1f),
+                floatArrayOf(0f, 0.05f, 0.20f, 0.45f, 0.72f, 1f),
                 android.graphics.Shader.TileMode.CLAMP
             )
             canvas.drawRect(solidEnd, 0f, w.toFloat(), 2f, android.graphics.Paint().apply { this.shader = shader })
+            bmp.asImageBitmap()
+        }
+        val heroRadialGradientBitmap = remember(bgColor, heroMediaWidthPx, heroMediaHeightPx) {
+            val w = heroMediaWidthPx.coerceAtLeast(1)
+            val h = heroMediaHeightPx.coerceAtLeast(1)
+            val bmp = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
+            val canvas = android.graphics.Canvas(bmp)
+            val shader = android.graphics.RadialGradient(
+                0f, h * 0.5f,
+                w * 0.70f,
+                intArrayOf(
+                    bgColor.copy(alpha = 1.00f).toArgb(),
+                    bgColor.copy(alpha = 0.85f).toArgb(),
+                    bgColor.copy(alpha = 0.45f).toArgb(),
+                    bgColor.copy(alpha = 0.10f).toArgb(),
+                    bgColor.copy(alpha = 0f).toArgb()
+                ),
+                floatArrayOf(0f, 0.15f, 0.40f, 0.70f, 1f),
+                android.graphics.Shader.TileMode.CLAMP
+            )
+            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), android.graphics.Paint().apply { this.shader = shader })
             bmp.asImageBitmap()
         }
         val heroBottomGradientBitmap = remember(bgColor, heroMediaWidthPx, heroMediaHeightPx) {
@@ -706,6 +725,7 @@ fun ModernHomeContent(
             heroTrailerAlpha = heroTrailerAlpha,
             muted = uiState.focusedPosterBackdropTrailerMuted,
             leftGradient = heroLeftGradientBitmap,
+            radialGradient = heroRadialGradientBitmap,
             bottomGradient = heroBottomGradientBitmap,
             onTrailerEnded = { expandedCatalogFocusKey = null },
             onFirstFrameRendered = { heroTrailerFirstFrameRendered = true },
