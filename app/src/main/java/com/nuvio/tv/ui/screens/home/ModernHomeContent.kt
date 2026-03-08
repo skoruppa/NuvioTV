@@ -18,7 +18,6 @@ import androidx.compose.foundation.gestures.BringIntoViewSpec
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -64,6 +63,9 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.input.key.Key
@@ -539,11 +541,19 @@ fun ModernHomeContent(
     val continueWatchingCardWidth = portraitBaseWidth * 1.24f * continueWatchingScale
     val continueWatchingCardHeight = continueWatchingCardWidth / 1.77f
 
-    BoxWithConstraints(
-        modifier = Modifier.fillMaxSize()
+    var containerWidthPx by remember { mutableIntStateOf(0) }
+    var containerHeightPx by remember { mutableIntStateOf(0) }
+
+    Box(
+        modifier = Modifier.fillMaxSize().onSizeChanged {
+            containerWidthPx = it.width
+            containerHeightPx = it.height
+        }
     ) {
         val rowHorizontalPadding = 52.dp
-
+        val localDensity = LocalDensity.current
+        val rowsViewportHeightFraction = if (useLandscapePosters) 0.49f else 0.52f
+        val rowsViewportHeight = with(localDensity) { (containerHeightPx * rowsViewportHeightFraction).toDp() }
         val resolvedHero by remember(heroItem, activeRow, clampedActiveItemIndex) {
             derivedStateOf {
                 heroItem
@@ -551,18 +561,16 @@ fun ModernHomeContent(
                     ?: activeRow?.items?.firstOrNull()?.heroPreview
             }
         }
-        val activeRowFallbackBackdrop = remember(activeRow?.key, activeRow?.items) {
-            activeRow?.items?.firstNotNullOfOrNull { item ->
-                item.heroPreview.backdrop?.takeIf { it.isNotBlank() }
-            }
-        }
-        val heroBackdrop by remember(heroItem, resolvedHero, activeRowFallbackBackdrop) {
+        val heroBackdrop by remember(heroItem, resolvedHero, activeRow) {
             derivedStateOf {
+                val fallback = if (heroItem == null) {
+                    activeRow?.items?.firstNotNullOfOrNull { it.heroPreview.backdrop?.takeIf { b -> b.isNotBlank() } }
+                } else null
                 firstNonBlank(
                     resolvedHero?.backdrop,
                     resolvedHero?.imageUrl,
                     resolvedHero?.poster,
-                    if (heroItem == null) activeRowFallbackBackdrop else null
+                    fallback
                 )
             }
         }
@@ -614,16 +622,6 @@ fun ModernHomeContent(
         val catalogBottomPadding = 0.dp
         val heroToCatalogGap = 16.dp
         val rowTitleBottom = 14.dp
-        val rowsViewportHeightFraction = if (useLandscapePosters) 0.49f else 0.52f
-        val rowsViewportHeight = maxHeight * rowsViewportHeightFraction
-        val localDensity = LocalDensity.current
-        val rowTitleLineHeight = MaterialTheme.typography.titleMedium.lineHeight
-        val rowTitleHeight = with(localDensity) {
-            runCatching { rowTitleLineHeight.toDp() }
-                .getOrDefault(24.dp)
-        }
-        val heroBackdropHeight = (maxHeight - rowsViewportHeight + rowTitleHeight + rowTitleBottom)
-            .coerceAtMost(maxHeight)
         val verticalRowBringIntoViewSpec = remember(localDensity, defaultBringIntoViewSpec) {
             val topInsetPx = with(localDensity) { MODERN_ROW_HEADER_FOCUS_INSET.toPx() }
             object : BringIntoViewSpec {
@@ -639,18 +637,65 @@ fun ModernHomeContent(
             }
         }
         val bgColor = NuvioColors.Background
-        val heroMediaWidthPx = remember(maxWidth, localDensity) {
-            with(localDensity) { (maxWidth * MODERN_HERO_MEDIA_WIDTH_FRACTION).roundToPx() }
+        val heroMediaWidthPx = remember(containerWidthPx) {
+            (containerWidthPx * 0.75f).toInt().coerceAtLeast(1)
         }
-        val heroMediaHeightPx = remember(heroBackdropHeight, localDensity) {
-            with(localDensity) { heroBackdropHeight.roundToPx() }
+        val heroMediaHeightPx = remember(containerHeightPx) {
+            (containerHeightPx * MODERN_HERO_BACKDROP_HEIGHT_FRACTION).toInt().coerceAtLeast(1)
+        }
+        val heroLeftGradientBitmap = remember(bgColor, heroMediaWidthPx, heroMediaHeightPx) {
+            val w = heroMediaWidthPx.coerceAtLeast(1)
+            // horizontal: solid strip [0, w*0.018], then fade [w*0.018, w*0.378]
+            // stops: 0→1.0, 0.18→0.82, 0.40→0.48, 0.70→0.14, 1.0→0
+            val solidEnd = w * 0.018f
+            val fadeEnd = w * 0.72f
+            val transparent = bgColor.copy(alpha = 0f).toArgb()
+            val bmp = android.graphics.Bitmap.createBitmap(w, 2, android.graphics.Bitmap.Config.ARGB_8888)
+            val canvas = android.graphics.Canvas(bmp)
+            canvas.drawRect(0f, 0f, solidEnd, 2f, android.graphics.Paint().apply {
+                color = bgColor.toArgb()
+            })
+            val fadeW = fadeEnd - solidEnd
+            val shader = android.graphics.LinearGradient(
+                solidEnd, 0f, solidEnd + fadeW, 0f,
+                intArrayOf(
+                    bgColor.copy(alpha = 1.00f).toArgb(),
+                    bgColor.copy(alpha = 0.60f).toArgb(),
+                    bgColor.copy(alpha = 0.20f).toArgb(),
+                    bgColor.copy(alpha = 0.05f).toArgb(),
+                    transparent
+                ),
+                floatArrayOf(0f, 0.20f, 0.50f, 0.78f, 1f),
+                android.graphics.Shader.TileMode.CLAMP
+            )
+            canvas.drawRect(solidEnd, 0f, w.toFloat(), 2f, android.graphics.Paint().apply { this.shader = shader })
+            bmp.asImageBitmap()
+        }
+        val heroBottomGradientBitmap = remember(bgColor, heroMediaWidthPx, heroMediaHeightPx) {
+            val h = heroMediaHeightPx.coerceAtLeast(1)
+            val transparent = bgColor.copy(alpha = 0f).toArgb()
+            val bmp = android.graphics.Bitmap.createBitmap(2, h, android.graphics.Bitmap.Config.ARGB_8888)
+            val canvas = android.graphics.Canvas(bmp)
+            val shader = android.graphics.LinearGradient(
+                0f, h * 0.50f, 0f, h.toFloat(),
+                intArrayOf(
+                    transparent,
+                    bgColor.copy(alpha = 0.45f).toArgb(),
+                    bgColor.copy(alpha = 0.85f).toArgb(),
+                    bgColor.copy(alpha = 1.00f).toArgb()
+                ),
+                floatArrayOf(0f, 0.50f, 0.82f, 1f),
+                android.graphics.Shader.TileMode.CLAMP
+            )
+            canvas.drawRect(0f, 0f, 2f, h.toFloat(), android.graphics.Paint().apply { this.shader = shader })
+            bmp.asImageBitmap()
         }
 
         val heroMediaModifier = Modifier
             .align(Alignment.TopEnd)
             .offset(x = 56.dp)
-            .fillMaxWidth(MODERN_HERO_MEDIA_WIDTH_FRACTION)
-            .height(heroBackdropHeight)
+            .fillMaxWidth(0.75f)
+            .fillMaxHeight(MODERN_HERO_BACKDROP_HEIGHT_FRACTION)
 
         ModernHeroMediaLayer(
             heroBackdrop = heroBackdrop,
@@ -660,7 +705,8 @@ fun ModernHomeContent(
             heroTrailerAudioUrl = heroTrailerAudioUrl,
             heroTrailerAlpha = heroTrailerAlpha,
             muted = uiState.focusedPosterBackdropTrailerMuted,
-            bgColor = bgColor,
+            leftGradient = heroLeftGradientBitmap,
+            bottomGradient = heroBottomGradientBitmap,
             onTrailerEnded = { expandedCatalogFocusKey = null },
             onFirstFrameRendered = { heroTrailerFirstFrameRendered = true },
             modifier = heroMediaModifier,

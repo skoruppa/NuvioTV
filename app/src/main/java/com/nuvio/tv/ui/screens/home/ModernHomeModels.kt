@@ -4,8 +4,10 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import com.nuvio.tv.domain.model.CatalogRow
 import com.nuvio.tv.ui.util.localizeEpisodeTitle
@@ -19,13 +21,21 @@ internal const val MODERN_HERO_MEDIA_WIDTH_FRACTION = 0.72f
 internal const val MODERN_TRAILER_OVERSCAN_ZOOM = 1.35f
 internal const val MODERN_HERO_FOCUS_DEBOUNCE_MS = 90L
 internal val MODERN_ROW_HEADER_FOCUS_INSET = 40.dp
-internal val MODERN_LANDSCAPE_LOGO_GRADIENT = Brush.verticalGradient(
-    colorStops = arrayOf(
-        0.0f to Color.Transparent,
-        0.58f to Color.Transparent,
-        1.0f to Color.Black.copy(alpha = 0.75f)
+internal val MODERN_LANDSCAPE_LOGO_GRADIENT: ImageBitmap by lazy {
+    val h = 64
+    val bmp = android.graphics.Bitmap.createBitmap(2, h, android.graphics.Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(bmp)
+    val transparent = Color.Transparent.toArgb()
+    val dark = Color.Black.copy(alpha = 0.75f).toArgb()
+    val shader = android.graphics.LinearGradient(
+        0f, h * 0.58f, 0f, h.toFloat(),
+        intArrayOf(transparent, transparent, dark),
+        floatArrayOf(0f, 0f, 1f),
+        android.graphics.Shader.TileMode.CLAMP
     )
-)
+    canvas.drawRect(0f, 0f, 2f, h.toFloat(), android.graphics.Paint().apply { this.shader = shader })
+    bmp.asImageBitmap()
+}
 
 @Immutable
 internal data class HeroPreview(

@@ -6,6 +6,9 @@ import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.gestures.BringIntoViewSpec
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
@@ -51,7 +54,6 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,6 +62,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.ui.res.stringResource
 import androidx.tv.material3.Border
 import androidx.tv.material3.Icon
 import androidx.tv.material3.Card
@@ -486,10 +489,10 @@ private fun ModernCarouselCard(
     onBackdropInteraction: () -> Unit,
     onTrailerEnded: () -> Unit
 ) {
-    val cardShape = RoundedCornerShape(cardCornerRadius)
+    val cardShape = remember(cardCornerRadius) { RoundedCornerShape(cardCornerRadius) }
     val context = LocalContext.current
     val density = LocalDensity.current
-    val expandedCardWidth = cardHeight * (16f / 9f)
+    val expandedCardWidth = remember(cardHeight) { cardHeight * (16f / 9f) }
     val targetCardWidth = if (focusedPosterBackdropExpandEnabled && isBackdropExpanded) {
         expandedCardWidth
     } else {
@@ -530,7 +533,7 @@ private fun ModernCarouselCard(
                 .build()
         }
     }
-    val logoHeight = cardHeight * 0.34f
+    val logoHeight = remember(cardHeight) { cardHeight * 0.34f }
     val logoHeightPx = remember(logoHeight, density) {
         with(density) { logoHeight.roundToPx() }
     }
@@ -637,9 +640,14 @@ private fun ModernCarouselCard(
                     Modifier
                         .fillMaxSize()
                         .drawWithCache {
+                            val dst = IntSize(size.width.toInt(), size.height.toInt())
                             onDrawWithContent {
                                 drawContent()
-                                drawRect(brush = MODERN_LANDSCAPE_LOGO_GRADIENT, size = size)
+                                drawImage(
+                                    MODERN_LANDSCAPE_LOGO_GRADIENT,
+                                    dstSize = dst,
+                                    filterQuality = FilterQuality.Low
+                                )
                             }
                         }
                 } else {

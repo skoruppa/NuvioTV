@@ -2,9 +2,7 @@ package com.nuvio.tv.ui.screens.home
 
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -26,11 +23,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -45,13 +41,6 @@ import coil.request.ImageRequest
 import com.nuvio.tv.ui.components.TrailerPlayer
 import com.nuvio.tv.ui.theme.NuvioColors
 
-private data class ModernHeroSecondaryMeta(
-    val highlightText: String?,
-    val ageRating: String?,
-    val status: String?,
-    val details: List<String>
-)
-
 @Composable
 internal fun ModernHeroMediaLayer(
     heroBackdrop: String?,
@@ -61,7 +50,8 @@ internal fun ModernHeroMediaLayer(
     heroTrailerAudioUrl: String?,
     heroTrailerAlpha: Float,
     muted: Boolean,
-    bgColor: Color,
+    leftGradient: ImageBitmap,
+    bottomGradient: ImageBitmap,
     onTrailerEnded: () -> Unit,
     onFirstFrameRendered: () -> Unit,
     modifier: Modifier,
@@ -114,56 +104,10 @@ internal fun ModernHeroMediaLayer(
             modifier = Modifier
                 .fillMaxSize()
                 .drawWithCache {
-                    val leftBlendSolidWidth = size.width * 0.018f
-                    val horizontalGradientStartX = leftBlendSolidWidth
-                    val horizontalFadeEndX = horizontalGradientStartX + (size.width * 0.42f)
-                    val horizontalGradient = Brush.horizontalGradient(
-                        colorStops = arrayOf(
-                            0.0f to bgColor,
-                            0.22f to bgColor.copy(alpha = 0.86f),
-                            0.46f to bgColor.copy(alpha = 0.56f),
-                            0.76f to bgColor.copy(alpha = 0.16f),
-                            1.0f to Color.Transparent
-                        ),
-                        startX = horizontalGradientStartX,
-                        endX = horizontalFadeEndX
-                    )
-                    val topContourGradient = Brush.linearGradient(
-                        colorStops = arrayOf(
-                            0.0f to bgColor.copy(alpha = 0.28f),
-                            0.38f to bgColor.copy(alpha = 0.14f),
-                            0.72f to bgColor.copy(alpha = 0.05f),
-                            1.0f to Color.Transparent
-                        ),
-                        start = Offset(0f, 0f),
-                        end = Offset(size.width * 0.24f, size.height * 0.40f)
-                    )
-                    val bottomContourGradient = Brush.linearGradient(
-                        colorStops = arrayOf(
-                            0.0f to bgColor.copy(alpha = 0.24f),
-                            0.42f to bgColor.copy(alpha = 0.12f),
-                            0.74f to bgColor.copy(alpha = 0.05f),
-                            1.0f to Color.Transparent
-                        ),
-                        start = Offset(0f, size.height),
-                        end = Offset(size.width * 0.24f, size.height * 0.61f)
-                    )
-                    val verticalGradient = Brush.verticalGradient(
-                        0.89f to Color.Transparent,
-                        0.93f to bgColor.copy(alpha = 0.14f),
-                        0.965f to bgColor.copy(alpha = 0.52f),
-                        0.99f to bgColor.copy(alpha = 0.92f),
-                        1.0f to bgColor
-                    )
+                    val dst = IntSize(size.width.toInt(), size.height.toInt())
                     onDrawBehind {
-                        drawRect(
-                            color = bgColor,
-                            size = Size(leftBlendSolidWidth, size.height)
-                        )
-                        drawRect(brush = horizontalGradient, size = size)
-                        drawRect(brush = topContourGradient, size = size)
-                        drawRect(brush = bottomContourGradient, size = size)
-                        drawRect(brush = verticalGradient, size = size)
+                        drawImage(leftGradient, dstSize = dst, filterQuality = FilterQuality.Low)
+                        drawImage(bottomGradient, dstSize = dst, filterQuality = FilterQuality.Low)
                     }
                 }
         )
@@ -248,32 +192,6 @@ internal fun HeroTitleBlock(
             )
         }
 
-        val secondaryMeta = remember(
-            preview.secondaryHighlightText,
-            preview.ageRatingText,
-            preview.statusText,
-            preview.languageText
-        ) {
-            ModernHeroSecondaryMeta(
-                highlightText = preview.secondaryHighlightText?.trim()?.takeIf { it.isNotBlank() },
-                ageRating = preview.ageRatingText?.trim()?.takeIf { it.isNotBlank() },
-                status = preview.statusText?.trim()?.takeIf { it.isNotBlank() }?.uppercase(),
-                details = buildList {
-                    preview.languageText?.trim()?.takeIf { it.isNotBlank() }?.let(::add)
-                }
-            )
-        }
-
-        val secondaryHighlightText = secondaryMeta.highlightText
-        val ageRatingBadge = secondaryMeta.ageRating
-        val statusBadge = secondaryMeta.status
-        val secondaryDetails = secondaryMeta.details
-        val hasSecondaryBadge = ageRatingBadge != null || statusBadge != null
-        val showImdbInPrimary = !preview.isSeries && !hasSecondaryBadge && !preview.imdbText.isNullOrBlank()
-        val showImdbInPrimaryWithHighlight = showImdbInPrimary && secondaryHighlightText == null
-        val showImdbInSecondary = !preview.imdbText.isNullOrBlank() &&
-            (preview.isSeries || hasSecondaryBadge || secondaryHighlightText != null)
-
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -287,12 +205,9 @@ internal fun HeroTitleBlock(
             }
             val hasLeadingMeta = leadingMetaText.isNotBlank()
 
-            val runtimeText = preview.runtimeText
             val yearText = preview.yearText
             val imdbText = preview.imdbText
-            val hasTrailingMeta = !runtimeText.isNullOrBlank() ||
-                !yearText.isNullOrBlank() ||
-                showImdbInPrimaryWithHighlight
+            val hasYearOrImdb = !yearText.isNullOrBlank() || !imdbText.isNullOrBlank()
 
             if (hasLeadingMeta) {
                 Text(
@@ -301,7 +216,7 @@ internal fun HeroTitleBlock(
                     color = NuvioColors.TextSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = if (hasTrailingMeta) {
+                    modifier = if (hasYearOrImdb) {
                         Modifier.weight(1f, fill = false)
                     } else {
                         Modifier
@@ -309,7 +224,7 @@ internal fun HeroTitleBlock(
                 )
             }
 
-            if (hasTrailingMeta) {
+            if (hasYearOrImdb) {
                 if (hasLeadingMeta) {
                     HeroMetaDivider(metaScale)
                 }
@@ -317,14 +232,6 @@ internal fun HeroTitleBlock(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(metaSpacing)
                 ) {
-                    if (!runtimeText.isNullOrBlank()) {
-                        Text(
-                            text = runtimeText,
-                            style = labelMedium,
-                            color = NuvioColors.TextSecondary,
-                            maxLines = 1
-                        )
-                    }
                     if (!yearText.isNullOrBlank()) {
                         Text(
                             text = yearText,
@@ -333,87 +240,25 @@ internal fun HeroTitleBlock(
                             maxLines = 1
                         )
                     }
-                    if (showImdbInPrimaryWithHighlight && !imdbText.isNullOrBlank()) {
-                        HeroImdbMeta(
-                            imdbText = imdbText,
-                            imdbLogoModel = imdbLogoModel,
-                            textStyle = labelMedium,
-                            textColor = NuvioColors.TextSecondary,
-                            logoSize = 30.dp * metaScale,
-                            spacing = imdbMetaSpacing
-                        )
-                    }
-                }
-            }
-        }
-
-        if (secondaryHighlightText != null || ageRatingBadge != null || showImdbInSecondary || statusBadge != null || secondaryDetails.isNotEmpty()) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(metaSpacing)
-            ) {
-                secondaryHighlightText?.let { text ->
-                    Text(
-                        text = text,
-                        style = labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                        color = NuvioColors.TextPrimary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                if (secondaryHighlightText != null && (hasSecondaryBadge || showImdbInSecondary || secondaryDetails.isNotEmpty())) {
-                    HeroMetaDivider(metaScale)
-                }
-                if (ageRatingBadge != null && statusBadge != null) {
-                    HeroCombinedMetaBadge(
-                        leftText = ageRatingBadge,
-                        rightText = statusBadge,
-                        textStyle = labelMedium,
-                        contentColor = NuvioColors.TextPrimary
-                    )
-                } else {
-                    ageRatingBadge?.let { badge ->
-                        HeroMetaBadge(
-                            text = badge,
-                            textStyle = labelMedium,
-                            contentColor = NuvioColors.TextPrimary
-                        )
-                    }
-                    statusBadge?.let { badge ->
-                        HeroMetaBadge(
-                            text = badge,
-                            textStyle = labelMedium,
-                            contentColor = NuvioColors.TextPrimary
-                        )
-                    }
-                }
-                if ((ageRatingBadge != null || statusBadge != null) && (showImdbInSecondary || secondaryDetails.isNotEmpty())) {
-                    HeroMetaDivider(metaScale)
-                }
-                if (showImdbInSecondary) {
-                    HeroImdbMeta(
-                        imdbText = preview.imdbText.orEmpty(),
-                        imdbLogoModel = imdbLogoModel,
-                        textStyle = labelMedium,
-                        textColor = NuvioColors.TextSecondary,
-                        logoSize = 30.dp * metaScale,
-                        spacing = imdbMetaSpacing
-                    )
-                }
-                if (showImdbInSecondary && secondaryDetails.isNotEmpty()) {
-                    HeroMetaDivider(metaScale)
-                }
-                secondaryDetails.forEachIndexed { index, value ->
-                    Text(
-                        text = value,
-                        style = labelMedium,
-                        color = NuvioColors.TextTertiary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    if (index < secondaryDetails.lastIndex) {
-                        HeroMetaDivider(metaScale)
+                    if (!imdbText.isNullOrBlank()) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(imdbMetaSpacing)
+                        ) {
+                            AsyncImage(
+                                model = imdbLogoModel,
+                                contentDescription = "IMDb",
+                                modifier = Modifier.size(30.dp * metaScale),
+                                contentScale = ContentScale.Fit
+                            )
+                            Text(
+                                text = imdbText,
+                                style = labelMedium,
+                                color = NuvioColors.TextSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
             }
@@ -428,103 +273,6 @@ internal fun HeroTitleBlock(
                 overflow = TextOverflow.Ellipsis
             )
         }
-    }
-}
-
-@Composable
-private fun HeroImdbMeta(
-    imdbText: String,
-    imdbLogoModel: Any,
-    textStyle: androidx.compose.ui.text.TextStyle,
-    textColor: Color,
-    logoSize: androidx.compose.ui.unit.Dp,
-    spacing: androidx.compose.ui.unit.Dp
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(spacing)
-    ) {
-        AsyncImage(
-            model = imdbLogoModel,
-            contentDescription = "IMDb",
-            modifier = Modifier.size(logoSize),
-            contentScale = ContentScale.Fit
-        )
-        Text(
-            text = imdbText,
-            style = textStyle,
-            color = textColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
-
-@Composable
-private fun HeroCombinedMetaBadge(
-    leftText: String,
-    rightText: String,
-    textStyle: androidx.compose.ui.text.TextStyle,
-    contentColor: Color
-) {
-    val dividerColor = contentColor.copy(alpha = 0.55f)
-    Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(6.dp))
-            .border(
-                border = BorderStroke(1.dp, dividerColor),
-                shape = RoundedCornerShape(6.dp)
-            )
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Text(
-            text = leftText,
-            style = textStyle.copy(fontWeight = FontWeight.SemiBold),
-            color = contentColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        Box(
-            modifier = Modifier
-                .width(1.dp)
-                .height(12.dp)
-                .background(dividerColor)
-        )
-        Text(
-            text = rightText,
-            style = textStyle.copy(fontWeight = FontWeight.SemiBold),
-            color = contentColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
-
-@Composable
-private fun HeroMetaBadge(
-    text: String,
-    textStyle: androidx.compose.ui.text.TextStyle,
-    contentColor: Color
-) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(6.dp))
-            .border(
-                border = BorderStroke(1.dp, contentColor.copy(alpha = 0.55f)),
-                shape = RoundedCornerShape(6.dp)
-            )
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = text,
-            style = textStyle.copy(fontWeight = FontWeight.SemiBold),
-            color = contentColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
     }
 }
 
