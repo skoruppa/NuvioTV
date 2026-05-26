@@ -17,7 +17,9 @@ object ExternalPlayerLauncher {
         url: String,
         title: String? = null,
         headers: Map<String, String>? = null,
-        resumePositionMs: Long = 0L
+        resumePositionMs: Long = 0L,
+        subtitles: List<SubtitleInput>? = null,
+        selectedSubtitleIndex: Int = -1
     ): Boolean {
         return try {
             val intent = Intent(Intent.ACTION_VIEW).apply {
@@ -38,6 +40,45 @@ object ExternalPlayerLauncher {
                 if (resumePositionMs > 0L) {
                     putExtra("position", resumePositionMs.toInt())
                     putExtra("from_start", false)
+                }
+
+                // Inject subtitle extras for external players
+                if (!subtitles.isNullOrEmpty()) {
+                    val subtitleUris = subtitles.map { Uri.parse(it.url) }.toTypedArray()
+                    val subtitleNames = subtitles.map { it.name }.toTypedArray()
+                    val subtitleFilenames = subtitles.map { "${it.lang}_${it.name}.srt" }.toTypedArray()
+
+                    // 1. MX Player / Nova / mpv-android
+                    putExtra("subs", subtitleUris)
+                    putExtra("subs.name", subtitleNames)
+                    putExtra("subs.filename", subtitleFilenames)
+
+                    val enabledIndex = if (selectedSubtitleIndex in subtitles.indices) {
+                        selectedSubtitleIndex
+                    } else {
+                        val trIdx = subtitles.indexOfFirst { it.lang.lowercase() in listOf("tur", "tr", "turk", "turkish") }
+                        if (trIdx >= 0) trIdx else 0
+                    }
+
+                    if (enabledIndex in subtitles.indices) {
+                        putExtra("subs.enable", arrayOf(Uri.parse(subtitles[enabledIndex].url)))
+                    }
+
+                    // 2. Just Player (ExoPlayer arrays and active track)
+                    val activeSub = subtitles.getOrNull(enabledIndex)
+                    if (activeSub != null) {
+                        putExtra("subtitle", Uri.parse(activeSub.url))
+                        putExtra("subtitle_uri", Uri.parse(activeSub.url))
+                        putExtra("subtitle_name", activeSub.name)
+                    }
+                    putExtra("subtitle_uri", subtitleUris)
+                    putExtra("subtitle_name", subtitleNames)
+
+                    // 3. VLC
+                    if (activeSub != null) {
+                        putExtra("subtitles", activeSub.url)
+                        putExtra("subtitles", Uri.parse(activeSub.url))
+                    }
                 }
 
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -64,11 +105,15 @@ object ExternalPlayerLauncher {
         url: String,
         title: String? = null,
         headers: Map<String, String>? = null,
-        resumePositionMs: Long = 0L
+        resumePositionMs: Long = 0L,
+        subtitles: List<SubtitleInput>? = null,
+        selectedSubtitleIndex: Int = -1
     ): ExternalPlayerInput = ExternalPlayerInput(
         url = url,
         title = title,
         headers = headers,
-        resumePositionMs = resumePositionMs
+        resumePositionMs = resumePositionMs,
+        subtitles = subtitles,
+        selectedSubtitleIndex = selectedSubtitleIndex
     )
 }

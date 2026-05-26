@@ -196,12 +196,28 @@ class PlayerViewModel @Inject constructor(
             episodeTitle = controller.currentEpisodeTitle,
             year = controller.year
         )
+        val addonSubtitles = controller.uiState.value.addonSubtitles
+        val selectedSubtitle = controller.uiState.value.selectedAddonSubtitle
+        val subtitleInputs = addonSubtitles.map {
+            com.nuvio.tv.core.player.SubtitleInput(
+                url = it.url,
+                name = it.getDisplayLanguage(),
+                lang = it.lang
+            )
+        }
+        val selectedIndex = if (selectedSubtitle != null) {
+            addonSubtitles.indexOfFirst { it.id == selectedSubtitle.id }
+        } else {
+            -1
+        }
         externalPlaybackTracker.launchPlayer(
             metadata = metadata,
             url = url,
             title = controller.contentName ?: controller.title,
             headers = controller.getCurrentHeaders(),
             resumePositionMs = resumePositionMs,
+            subtitles = subtitleInputs,
+            selectedSubtitleIndex = selectedIndex,
             context = activityContext
         )
     }

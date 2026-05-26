@@ -6,6 +6,12 @@ import android.content.Intent
 import android.net.Uri
 import androidx.activity.result.contract.ActivityResultContract
 
+data class SubtitleInput(
+    val url: String,
+    val name: String,
+    val lang: String
+)
+
 /**
  * Input data for launching an external video player.
  */
@@ -13,7 +19,9 @@ data class ExternalPlayerInput(
     val url: String,
     val title: String? = null,
     val headers: Map<String, String>? = null,
-    val resumePositionMs: Long = 0L
+    val resumePositionMs: Long = 0L,
+    val subtitles: List<SubtitleInput>? = null,
+    val selectedSubtitleIndex: Int = -1
 )
 
 /**
@@ -63,6 +71,47 @@ class ExternalPlayerResultContract : ActivityResultContract<ExternalPlayerInput,
             // Request that the player returns result with position/duration.
             // Required by MX Player; harmless for other players.
             putExtra("return_result", true)
+
+            // Inject subtitle extras for external players
+            val subs = input.subtitles
+            if (!subs.isNullOrEmpty()) {
+                val subtitleUris = subs.map { Uri.parse(it.url) }.toTypedArray()
+                val subtitleNames = subs.map { it.name }.toTypedArray()
+                val subtitleFilenames = subs.map { "${it.lang}_${it.name}.srt" }.toTypedArray()
+
+                // 1. MX Player / Nova / mpv-android
+                putExtra("subs", subtitleUris)
+                putExtra("subs.name", subtitleNames)
+                putExtra("subs.filename", subtitleFilenames)
+
+                val enabledIndex = if (input.selectedSubtitleIndex in subs.indices) {
+                    input.selectedSubtitleIndex
+                } else {
+                    // Default to Turkish or English if available, otherwise first
+                    val trIdx = subs.indexOfFirst { it.lang.lowercase() in listOf("tur", "tr", "turk", "turkish") }
+                    if (trIdx >= 0) trIdx else 0
+                }
+
+                if (enabledIndex in subs.indices) {
+                    putExtra("subs.enable", arrayOf(Uri.parse(subs[enabledIndex].url)))
+                }
+
+                // 2. Just Player (ExoPlayer arrays and active track)
+                val activeSub = subs.getOrNull(enabledIndex)
+                if (activeSub != null) {
+                    putExtra("subtitle", Uri.parse(activeSub.url))
+                    putExtra("subtitle_uri", Uri.parse(activeSub.url))
+                    putExtra("subtitle_name", activeSub.name)
+                }
+                putExtra("subtitle_uri", subtitleUris)
+                putExtra("subtitle_name", subtitleNames)
+
+                // 3. VLC
+                if (activeSub != null) {
+                    putExtra("subtitles", activeSub.url)
+                    putExtra("subtitles", Uri.parse(activeSub.url))
+                }
+            }
 
             // Do NOT add FLAG_ACTIVITY_NEW_TASK — it prevents receiving the result.
         }

@@ -29,6 +29,7 @@ import com.nuvio.tv.domain.model.enabledAddons
 import com.nuvio.tv.domain.repository.AddonRepository
 import com.nuvio.tv.domain.repository.MetaRepository
 import com.nuvio.tv.domain.repository.StreamRepository
+import com.nuvio.tv.domain.repository.SubtitleRepository
 import com.nuvio.tv.domain.repository.WatchProgressRepository
 import com.nuvio.tv.data.repository.TraktScrobbleService
 import com.nuvio.tv.data.repository.TraktScrobbleItem
@@ -77,6 +78,7 @@ class StreamScreenViewModel @Inject constructor(
     private val directDebridResolver: DirectDebridResolver,
     private val directDebridStreamPreparer: DirectDebridStreamPreparer,
     private val externalPlaybackTracker: com.nuvio.tv.core.player.ExternalPlaybackTracker,
+    private val subtitleRepository: SubtitleRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     private var autoPlayHandledForSession = false
@@ -1078,14 +1080,39 @@ class StreamScreenViewModel @Inject constructor(
             episodeTitle = playbackInfo.episodeTitle,
             year = playbackInfo.year
         )
-        externalPlaybackTracker.launchPlayer(
-            metadata = metadata,
-            url = url,
-            title = playbackInfo.title,
-            headers = playbackInfo.headers,
-            resumePositionMs = resumePositionMs,
-            context = context
-        )
+        viewModelScope.launch {
+            val fetchedSubs = try {
+                subtitleRepository.getSubtitles(
+                    type = metadata.contentType,
+                    id = metadata.contentId,
+                    videoId = metadata.videoId,
+                    videoHash = playbackInfo.videoHash,
+                    videoSize = playbackInfo.videoSize,
+                    filename = playbackInfo.filename
+                )
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to prefetch subtitles for external player", e)
+                emptyList()
+            }
+
+            val subtitleInputs = fetchedSubs.map {
+                com.nuvio.tv.core.player.SubtitleInput(
+                    url = it.url,
+                    name = it.getDisplayLanguage(),
+                    lang = it.lang
+                )
+            }
+
+            externalPlaybackTracker.launchPlayer(
+                metadata = metadata,
+                url = url,
+                title = playbackInfo.title,
+                headers = playbackInfo.headers,
+                resumePositionMs = resumePositionMs,
+                subtitles = subtitleInputs,
+                context = context
+            )
+        }
     }
 
     /**
