@@ -1081,6 +1081,14 @@ class StreamScreenViewModel @Inject constructor(
             year = playbackInfo.year
         )
         viewModelScope.launch {
+            val settings = playerSettingsDataStore.playerSettings.first()
+            val preferred = settings.subtitleStyle.preferredLanguage
+            val secondary = settings.subtitleStyle.secondaryPreferredLanguage
+            val preferredLanguages = when (preferred.trim().lowercase()) {
+                "none" -> emptyList()
+                else -> listOfNotNull(preferred, secondary).distinct()
+            }
+
             val fetchedSubs = try {
                 subtitleRepository.getSubtitles(
                     type = metadata.contentType,
@@ -1110,6 +1118,7 @@ class StreamScreenViewModel @Inject constructor(
                 headers = playbackInfo.headers,
                 resumePositionMs = resumePositionMs,
                 subtitles = subtitleInputs,
+                preferredLanguages = preferredLanguages,
                 context = context
             )
         }

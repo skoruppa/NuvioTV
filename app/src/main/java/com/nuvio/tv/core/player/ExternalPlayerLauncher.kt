@@ -19,7 +19,8 @@ object ExternalPlayerLauncher {
         headers: Map<String, String>? = null,
         resumePositionMs: Long = 0L,
         subtitles: List<SubtitleInput>? = null,
-        selectedSubtitleIndex: Int = -1
+        selectedSubtitleIndex: Int = -1,
+        preferredLanguages: List<String> = emptyList()
     ): Boolean {
         return try {
             val intent = Intent(Intent.ACTION_VIEW).apply {
@@ -56,8 +57,15 @@ object ExternalPlayerLauncher {
                     val enabledIndex = if (selectedSubtitleIndex in subtitles.indices) {
                         selectedSubtitleIndex
                     } else {
-                        val trIdx = subtitles.indexOfFirst { it.lang.lowercase() in listOf("tur", "tr", "turk", "turkish") }
-                        if (trIdx >= 0) trIdx else 0
+                        var foundIndex = -1
+                        for (target in preferredLanguages) {
+                            val idx = subtitles.indexOfFirst { matchesLanguage(it.lang, target) }
+                            if (idx >= 0) {
+                                foundIndex = idx
+                                break
+                            }
+                        }
+                        if (foundIndex >= 0) foundIndex else 0
                     }
 
                     if (enabledIndex in subtitles.indices) {
@@ -107,13 +115,32 @@ object ExternalPlayerLauncher {
         headers: Map<String, String>? = null,
         resumePositionMs: Long = 0L,
         subtitles: List<SubtitleInput>? = null,
-        selectedSubtitleIndex: Int = -1
+        selectedSubtitleIndex: Int = -1,
+        preferredLanguages: List<String> = emptyList()
     ): ExternalPlayerInput = ExternalPlayerInput(
         url = url,
         title = title,
         headers = headers,
         resumePositionMs = resumePositionMs,
         subtitles = subtitles,
-        selectedSubtitleIndex = selectedSubtitleIndex
+        selectedSubtitleIndex = selectedSubtitleIndex,
+        preferredLanguages = preferredLanguages
     )
+
+    private fun matchesLanguage(lang: String?, target: String): Boolean {
+        if (lang.isNullOrBlank()) return false
+        val normalizedLang = lang.trim().lowercase()
+        val normalizedTarget = target.trim().lowercase()
+
+        if (com.nuvio.tv.ui.screens.player.PlayerSubtitleUtils.matchesLanguageCode(normalizedLang, normalizedTarget)) return true
+
+        try {
+            val targetName = com.nuvio.tv.ui.util.languageCodeToName(normalizedTarget).lowercase()
+            if (targetName.isNotBlank() && normalizedLang.contains(targetName)) return true
+        } catch (e: Exception) {
+            // ignore
+        }
+
+        return false
+    }
 }

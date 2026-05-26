@@ -210,6 +210,14 @@ class PlayerViewModel @Inject constructor(
         } else {
             -1
         }
+
+        val preferred = controller.uiState.value.subtitleStyle.preferredLanguage
+        val secondary = controller.uiState.value.subtitleStyle.secondaryPreferredLanguage
+        val preferredLanguages = when (preferred.trim().lowercase()) {
+            "none" -> emptyList()
+            else -> listOfNotNull(preferred, secondary).distinct()
+        }
+
         externalPlaybackTracker.launchPlayer(
             metadata = metadata,
             url = url,
@@ -218,6 +226,7 @@ class PlayerViewModel @Inject constructor(
             resumePositionMs = resumePositionMs,
             subtitles = subtitleInputs,
             selectedSubtitleIndex = selectedIndex,
+            preferredLanguages = preferredLanguages,
             context = activityContext
         )
     }

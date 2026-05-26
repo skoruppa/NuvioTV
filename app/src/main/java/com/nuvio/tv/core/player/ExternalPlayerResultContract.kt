@@ -21,7 +21,8 @@ data class ExternalPlayerInput(
     val headers: Map<String, String>? = null,
     val resumePositionMs: Long = 0L,
     val subtitles: List<SubtitleInput>? = null,
-    val selectedSubtitleIndex: Int = -1
+    val selectedSubtitleIndex: Int = -1,
+    val preferredLanguages: List<String> = emptyList()
 )
 
 /**
@@ -87,9 +88,15 @@ class ExternalPlayerResultContract : ActivityResultContract<ExternalPlayerInput,
                 val enabledIndex = if (input.selectedSubtitleIndex in subs.indices) {
                     input.selectedSubtitleIndex
                 } else {
-                    // Default to Turkish or English if available, otherwise first
-                    val trIdx = subs.indexOfFirst { it.lang.lowercase() in listOf("tur", "tr", "turk", "turkish") }
-                    if (trIdx >= 0) trIdx else 0
+                    var foundIndex = -1
+                    for (target in input.preferredLanguages) {
+                        val idx = subs.indexOfFirst { matchesLanguage(it.lang, target) }
+                        if (idx >= 0) {
+                            foundIndex = idx
+                            break
+                        }
+                    }
+                    if (foundIndex >= 0) foundIndex else 0
                 }
 
                 if (enabledIndex in subs.indices) {
@@ -160,5 +167,22 @@ class ExternalPlayerResultContract : ActivityResultContract<ExternalPlayerInput,
         // MX Player returns "end_by" with values "user" or "playback_completion"
         val endBy = data.getStringExtra("end_by")
         return endBy != "playback_completion"
+    }
+
+    private fun matchesLanguage(lang: String?, target: String): Boolean {
+        if (lang.isNullOrBlank()) return false
+        val normalizedLang = lang.trim().lowercase()
+        val normalizedTarget = target.trim().lowercase()
+
+        if (com.nuvio.tv.ui.screens.player.PlayerSubtitleUtils.matchesLanguageCode(normalizedLang, normalizedTarget)) return true
+
+        try {
+            val targetName = com.nuvio.tv.ui.util.languageCodeToName(normalizedTarget).lowercase()
+            if (targetName.isNotBlank() && normalizedLang.contains(targetName)) return true
+        } catch (e: Exception) {
+            // ignore
+        }
+
+        return false
     }
 }

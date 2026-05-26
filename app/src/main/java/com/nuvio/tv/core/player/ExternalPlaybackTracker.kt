@@ -115,6 +115,7 @@ class ExternalPlaybackTracker @Inject constructor(
         resumePositionMs: Long = 0L,
         subtitles: List<SubtitleInput>? = null,
         selectedSubtitleIndex: Int = -1,
+        preferredLanguages: List<String> = emptyList(),
         context: Context
     ) {
         startTracking(metadata)
@@ -125,7 +126,8 @@ class ExternalPlaybackTracker @Inject constructor(
             headers = headers,
             resumePositionMs = resumePositionMs,
             subtitles = subtitles,
-            selectedSubtitleIndex = selectedSubtitleIndex
+            selectedSubtitleIndex = selectedSubtitleIndex,
+            preferredLanguages = preferredLanguages
         )
 
         if (ZidooPlayerMonitor.isZidooDevice()) {
@@ -137,7 +139,8 @@ class ExternalPlaybackTracker @Inject constructor(
                 headers = headers,
                 resumePositionMs = resumePositionMs,
                 subtitles = subtitles,
-                selectedSubtitleIndex = selectedSubtitleIndex
+                selectedSubtitleIndex = selectedSubtitleIndex,
+                preferredLanguages = preferredLanguages
             )
         } else {
             // Use Activity-level launcher for ActivityResult
@@ -154,7 +157,8 @@ class ExternalPlaybackTracker @Inject constructor(
                         headers = headers,
                         resumePositionMs = resumePositionMs,
                         subtitles = subtitles,
-                        selectedSubtitleIndex = selectedSubtitleIndex
+                        selectedSubtitleIndex = selectedSubtitleIndex,
+                        preferredLanguages = preferredLanguages
                     )
                 }
             } else {
@@ -166,7 +170,8 @@ class ExternalPlaybackTracker @Inject constructor(
                     headers = headers,
                     resumePositionMs = resumePositionMs,
                     subtitles = subtitles,
-                    selectedSubtitleIndex = selectedSubtitleIndex
+                    selectedSubtitleIndex = selectedSubtitleIndex,
+                    preferredLanguages = preferredLanguages
                 )
             }
         }
