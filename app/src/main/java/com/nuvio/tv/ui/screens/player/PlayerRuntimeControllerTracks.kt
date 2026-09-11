@@ -1906,7 +1906,14 @@ internal fun PlayerRuntimeController.applySubtitlePreferences(preferred: String,
         val builder = player.trackSelectionParameters.buildUpon()
 
         if (preferred == "none") {
-            builder.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+            // This runs on every settings emission, not only when the subtitle preference
+            // changes, so disabling here drops a restored or user picked track while the UI
+            // keeps showing it as selected.
+            val hasActiveSubtitleSelection = _uiState.value.selectedSubtitleTrackIndex >= 0 ||
+                    _uiState.value.selectedAddonSubtitle != null
+            if (!hasActiveSubtitleSelection) {
+                builder.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+            }
             builder.setPreferredTextLanguage(null)
         } else {
             val userDisabledSubtitles = autoSubtitleSelected &&
