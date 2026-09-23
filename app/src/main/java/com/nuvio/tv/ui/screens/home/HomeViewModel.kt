@@ -585,6 +585,12 @@ class HomeViewModel @Inject constructor(
                 .distinctUntilChanged()
                 .collectLatest { settings ->
                     currentMdbListSettings = settings
+                    _uiState.update {
+                        it.copy(
+                            mdbListShowOnHero = settings.showOnHero,
+                            mdbListRatingOrder = settings.enabledRatingOrder()
+                        )
+                    }
                 }
         }
     }

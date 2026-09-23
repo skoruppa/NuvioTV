@@ -102,6 +102,7 @@ fun HeroContentSection(
     onTrailerClick: () -> Unit = {},
     hideLogoDuringTrailer: Boolean = false,
     mdbListRatings: MDBListRatings? = null,
+    mdbListRatingOrder: List<String> = com.nuvio.tv.domain.model.MDBListSettings.DEFAULT_RATING_ORDER,
     hideMetaInfoImdb: Boolean = false,
     tmdbRating: Float? = null,
     showFullReleaseDate: Boolean = true,
@@ -311,7 +312,7 @@ fun HeroContentSection(
                     }
 
                     if (mdbListRatings?.isEmpty() == false) {
-                        MDBListRatingsRow(ratings = mdbListRatings)
+                        MDBListRatingsRow(ratings = mdbListRatings, order = mdbListRatingOrder)
                         Spacer(modifier = Modifier.height(14.dp))
                     }
 
