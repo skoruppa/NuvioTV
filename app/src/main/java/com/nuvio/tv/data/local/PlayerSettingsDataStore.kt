@@ -516,7 +516,10 @@ enum class LibassRenderMode {
     /** Preserves HDR output; subtitles may have a timing offset on TV hardware. */
     OVERLAY,
     /** Frame-accurate subtitles; HDR tone-mapped to SDR. */
-    VIDEO_EFFECT;
+    VIDEO_EFFECT,
+    /** CPU-blended overlay via ANativeWindow. Zero GPU, NEON-optimized alpha blend.
+     *  Same as OVERLAY but bypasses GL entirely */
+    OVERLAY_CPU_BLEND;
 
     companion object {
         val DEFAULT = OVERLAY
@@ -524,6 +527,7 @@ enum class LibassRenderMode {
         fun fromStoredString(value: String?): LibassRenderMode = when (value) {
             VIDEO_EFFECT.name -> VIDEO_EFFECT
             OVERLAY.name -> OVERLAY
+            OVERLAY_CPU_BLEND.name -> OVERLAY_CPU_BLEND
             else -> DEFAULT
         }
     }

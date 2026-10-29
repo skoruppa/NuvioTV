@@ -2628,7 +2628,7 @@ private fun PlayerView.syncLibassOverlay(
     // Overlay is needed when libass is enabled AND the user chose OVERLAY mode.
     // OVERLAY mode skips setVideoEffects entirely so HDR passthrough is preserved.
     // VIDEO_EFFECT (default) draws subtitles onto the video frame - no overlay needed.
-    val needsOverlay = enabled && renderMode == LibassRenderMode.OVERLAY
+    val needsOverlay = enabled && (renderMode == LibassRenderMode.OVERLAY || renderMode == LibassRenderMode.OVERLAY_CPU_BLEND)
     val boundPlayer = getTag(R.id.libass_overlay_bound_player) as? ExoPlayer
     val hasOverlayChild = overlayContainer.hasAssOverlayChild()
 
@@ -2649,20 +2649,37 @@ private fun PlayerView.syncLibassOverlay(
     }
 
     overlayContainer.removeAssOverlayChildren()
-    // SurfaceView with atlas GL pipeline for best performance.
-    // AssPositionRenderer provides position updates when VideoFrameMetadataListener
-    // is not active (tunneled playback).
-    val surfaceView = AssSubtitleSurfaceView(overlayContainer.context, assHandler)
-    assHandler.videoFrameCallback = { presentationTimeUs, releaseTimeNs ->
-        surfaceView.requestRender(presentationTimeUs, releaseTimeNs)
-    }
-    overlayContainer.addView(
-        surfaceView,
-        android.widget.FrameLayout.LayoutParams(
-            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-            android.view.ViewGroup.LayoutParams.MATCH_PARENT
+    // Choose overlay implementation based on render type.
+    val useCpuBlend = assHandler.config.useCpuBlend
+    if (useCpuBlend) {
+        // CPU-blended overlay: NEON alpha blend directly into ANativeWindow, zero GPU.
+        val cpuView = com.nuvio.tv.libass.media.widget.AssCpuBlendSurfaceView(overlayContainer.context, assHandler)
+        assHandler.videoFrameCallback = { presentationTimeUs, releaseTimeNs ->
+            cpuView.requestRender(presentationTimeUs, releaseTimeNs)
+        }
+        overlayContainer.addView(
+            cpuView,
+            android.widget.FrameLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT
+            )
         )
-    )
+    } else {
+        // GL atlas overlay (default): SurfaceView with atlas GL pipeline.
+        // AssPositionRenderer provides position updates when VideoFrameMetadataListener
+        // is not active (tunneled playback).
+        val surfaceView = AssSubtitleSurfaceView(overlayContainer.context, assHandler)
+        assHandler.videoFrameCallback = { presentationTimeUs, releaseTimeNs ->
+            surfaceView.requestRender(presentationTimeUs, releaseTimeNs)
+        }
+        overlayContainer.addView(
+            surfaceView,
+            android.widget.FrameLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
+    }
     setTag(R.id.libass_overlay_bound_player, player)
     post { syncLibassOverlayGeometry() }
 }
